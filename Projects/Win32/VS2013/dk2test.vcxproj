@@ -114,8 +114,8 @@
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>C:\opt\SDL\VisualC\SDL\$(Platform)\$(Configuration);C:\opt\SDL\VisualC\SDLmain\$(Platform)\$(Configuration);C:\opt\boost\stage\lib;C:\opt\OculusSDK\LibOVR\Lib\$(Platform)\VS2013;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>Ws2_32.lib;winmm.lib;SDL2.lib;SDL2main.lib;libovr64d.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>C:\opt\SDL\VisualC\SDL\$(Platform)\$(Configuration);C:\opt\SDL\VisualC\SDLmain\$(Platform)\$(Configuration);C:\opt\boost\stage\lib;C:\opt\OculusSDK\LibOVR\Lib\$(Platform)\VS2013;C:\opt\ogre\build\sdk\lib\debug;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>Ws2_32.lib;winmm.lib;SDL2.lib;SDL2main.lib;libovr64d.lib;OgreMain_d.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -156,8 +156,8 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalLibraryDirectories>C:\opt\SDL\VisualC\SDL\$(Platform)\$(Configuration);C:\opt\SDL\VisualC\SDLmain\$(Platform)\$(Configuration);C:\opt\boost\stage\lib;C:\opt\OculusSDK\LibOVR\Lib\$(Platform)\VS2013;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>Ws2_32.lib;winmm.lib;SDL2.lib;SDL2main.lib;libovr64.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>C:\opt\SDL\VisualC\SDL\$(Platform)\$(Configuration);C:\opt\SDL\VisualC\SDLmain\$(Platform)\$(Configuration);C:\opt\boost\stage\lib;C:\opt\OculusSDK\LibOVR\Lib\$(Platform)\VS2013;C:\opt\ogre\build\sdk\lib\RelWithDebInfo;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>Ws2_32.lib;winmm.lib;SDL2.lib;SDL2main.lib;libovr64.lib;OgreMain.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>

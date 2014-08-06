@@ -1,16 +1,50 @@
 #include "PrecompiledHeaders.hpp"
 #include "dk2test.hpp"
 
+using namespace Ogre;
+
 dk2test::dk2test() {
+  this->changeToDirectoryOfExecutable();
   this->initOVR();
   this->initSDL();
-
+  this->initOgre();
   this->initOVR2();
+
+  this->createScene();
+  this->createRenderTextureViewer();
 }
 
 dk2test::~dk2test() {
   this->destroySDL();
-  this->destroyOVR();
+  //this->destroyOVR();
+}
+
+void dk2test::changeToDirectoryOfExecutable() {
+#if defined(_WIN32)
+	TCHAR szFullModulePath[_MAX_PATH + 1];
+	GetModuleFileName(NULL, szFullModulePath, _MAX_PATH);
+	szFullModulePath[_MAX_PATH] = '\0';
+
+	TCHAR szDrive[_MAX_DRIVE];
+	TCHAR szDir[_MAX_DIR];
+	TCHAR szFname[_MAX_FNAME];
+	TCHAR szExt[_MAX_EXT];
+
+	_tsplitpath_s(szFullModulePath,
+               szDrive, _MAX_DRIVE,
+               szDir, _MAX_DIR,
+               szFname, _MAX_FNAME,
+               szExt, _MAX_EXT);
+
+  TCHAR szWorkingDir[_MAX_PATH];
+  _tmakepath_s( szWorkingDir, _MAX_PATH, szDrive, szDir, NULL, NULL );
+
+  std::wstring working_dir(szWorkingDir);
+  working_dir += L"\\..";
+	_tchdir(working_dir.c_str());
+#else
+# error "changeToDirectoryOfExecutable() NYI"
+#endif
 }
 
 void dk2test::initOVR() {
@@ -18,8 +52,8 @@ void dk2test::initOVR() {
 
   mHmd = ovrHmd_Create(0);
   if (!mHmd) {
-    notice("Could not find a real Oculus head mounted display! Creating a debug one based on the DK2.");
-    mHmd = ovrHmd_CreateDebug(ovrHmd_DK2);
+    notice("Could not find a real Oculus head mounted display! Creating a debug one based on the DK1.");
+    mHmd = ovrHmd_CreateDebug(ovrHmd_DK1);
   }
 
   mRecommendedTexSize[kLeft] = ovrHmd_GetFovTextureSize(
@@ -30,86 +64,122 @@ void dk2test::initOVR() {
   mRenderTargetSize.w = mRecommendedTexSize[kLeft].w + mRecommendedTexSize[kRight].w;
   mRenderTargetSize.h = std::max(mRecommendedTexSize[kLeft].h, mRecommendedTexSize[kRight].h);
 
-  // TODO: does this affect quality? what is the performance impact?
-  mEyeRenderMultisample = 1;
-
   static const unsigned int supportedTrackingCaps = 
       ovrTrackingCap_Orientation | ovrTrackingCap_MagYawCorrection | ovrTrackingCap_Position;
   static const unsigned int requiredTrackingCaps = 0;
   ovrHmd_ConfigureTracking(mHmd, supportedTrackingCaps, requiredTrackingCaps);
 }
 
-void dk2test::destroyOVR() {
-  ovrHmd_Destroy(mHmd);
-  mHmd = NULL;
-
-  ovr_Shutdown();
-}
-
 void dk2test::initSDL() {
   SDL_Init(SDL_INIT_VIDEO);
 
-  SDL_GL_SetAttribute(SDL_GL_ACCELERATED_VISUAL, 1);
-
-  SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
-  SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
-  SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
-
-  SDL_GL_SetAttribute(SDL_GL_RED_SIZE, 8);
-  SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, 8);
-  SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE, 8);
-  SDL_GL_SetAttribute(SDL_GL_ALPHA_SIZE, 8);
-
-  SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
-  SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
-
-  SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-
-  static const unsigned int context_flags = 
-      0 |
-      //SDL_GL_CONTEXT_DEBUG_FLAG |
-      // no deprecated functionality, probably faster
-      SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG |
-      // safer APIs
-      //SDL_GL_CONTEXT_ROBUST_ACCESS_FLAG |
-      // require the GL to make promises about what to do in the face of driver
-      // or hardware failure.
-      //SDL_GL_CONTEXT_RESET_ISOLATION_FLAG
-      0
-      ;
-  SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, context_flags);
-
-  static const unsigned int flags = SDL_WINDOW_SHOWN | SDL_WINDOW_OPENGL;
+  static const unsigned int flags =
+      SDL_WINDOW_SHOWN |
+      //SDL_WINDOW_BORDERLESS |
+      0;
   mWindow = SDL_CreateWindow(
       "dk2test",
-      SDL_WINDOWPOS_CENTERED,
-      SDL_WINDOWPOS_CENTERED,
-      //this->mHmd->Resolution.w, this->mHmd->Resolution.h,
-      1920, 1080,
+      SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+      this->mHmd->Resolution.w, this->mHmd->Resolution.h,
       flags
       );
   if (!mWindow) {
     error("Could not create SDL2 window!");
   }
+}
 
-  mGLContext = SDL_GL_CreateContext(mWindow);
-  if (!mGLContext) {
-    error("Could not create OpenGL context!");
+void dk2test::initOgre() {
+  // create root
+  std::string plugin_filename = "";
+  std::string config_filename = "";
+  std::string log_filename = "Ogre.log";
+  mRoot = new Ogre::Root(plugin_filename, config_filename, log_filename);
+
+  // load dynamic libraries
+  std::vector<std::string> dlls = {
+    "RenderSystem_GL",
+    "Plugin_OctreeSceneManager",
+    "Plugin_ParticleFX",
+  };
+
+  for (auto dll : dlls) {
+#ifdef _DEBUG
+    dll += "_d";
+#endif
+    mRoot->loadPlugin(dll);
   }
+
+  // create renderer
+  auto rendersystems = mRoot->getAvailableRenderers();
+  mRoot->setRenderSystem(rendersystems[0]);
+
+  mRoot->initialise(false);
+
+  Ogre::NameValuePairList params;
+  params["externalWindowHandle"] = Ogre::StringConverter::toString((size_t)getNativeWindowHandle());
+
+  mRenderWindow = mRoot->createRenderWindow(
+      "OGRE Render Window",
+      this->mHmd->Resolution.w, this->mHmd->Resolution.h,
+      false,
+      &params);
+  mRenderWindow->setVisible(true);
+  mRenderWindow->setAutoUpdated(true);
+  mRenderWindow->setActive(true);
+
+  rendersystems[0]->clearFrameBuffer(Ogre::FBT_COLOUR, Ogre::ColourValue::Red);
+  mRoot->renderOneFrame(0.0f);
+
+  // Load resource paths from config file
+  ConfigFile config_file;
+  config_file.load("resources.cfg");
+
+  // Go through all sections & settings in the file
+  ConfigFile::SectionIterator section_iter = config_file.getSectionIterator();
+
+  String group_name, location_type, location_name;
+  while (section_iter.hasMoreElements()) {
+    group_name = section_iter.peekNextKey();
+    ConfigFile::SettingsMultiMap* settings = section_iter.getNext();
+    for (auto i = settings->begin(); i != settings->end(); ++i) {
+      location_type = i->first;
+      location_name = i->second;
+      static const bool recursive = false;
+      ResourceGroupManager::getSingleton().addResourceLocation(
+          location_name, location_type, group_name, recursive);
+    }
+  }
+
+  ResourceGroupManager::getSingleton().initialiseAllResourceGroups();
 }
 
 void dk2test::initOVR2() {
-  SDL_SysWMinfo window_info;
-  SDL_GetWindowWMInfo(mWindow, &window_info);
+  static const int num_mipmaps = 0;
+  static const bool hw_gamma_correction = false;
+  mEyeRenderMultisample = 0;
+
+  mEyeRenderTexture = TextureManager::getSingleton().createManual(
+      "EyeRenderTarget",
+      ResourceGroupManager::DEFAULT_RESOURCE_GROUP_NAME,
+      TEX_TYPE_2D,
+      mRenderTargetSize.w, mRenderTargetSize.h,
+      num_mipmaps,
+      PF_R8G8B8,
+      TU_RENDERTARGET,
+      NULL,
+      hw_gamma_correction,
+      mEyeRenderMultisample);
+
+  // might have changed due to hardware limitations
+  mRenderTargetSize.w = mEyeRenderTexture->getWidth();
+  mRenderTargetSize.h = mEyeRenderTexture->getHeight();
 
   ovrGLConfig cfg;
   cfg.OGL.Header.API = ovrRenderAPI_OpenGL;
-  cfg.OGL.Header.RTSize = OVR::Sizei(mHmd->Resolution.w, mHmd->Resolution.h);
+  cfg.OGL.Header.RTSize = mRenderTargetSize;
   cfg.OGL.Header.Multisample = mEyeRenderMultisample;
-#ifdef _WIN32
-  cfg.OGL.Window = window_info.info.win.window;
+  cfg.OGL.Window = (decltype(cfg.OGL.Window)) this->getNativeWindowHandle();
   cfg.OGL.DC = NULL;
-#endif
 
   int distortionCaps = 0;
   ovrEyeRenderDesc eyeRenderDesc[2];
@@ -119,9 +189,101 @@ void dk2test::initOVR2() {
       mHmd->DefaultEyeFov, eyeRenderDesc);
 }
 
+void dk2test::destroyOgre() {
+  delete mRoot;
+  mRoot = NULL;
+}
+
 void dk2test::destroySDL() {
   SDL_DestroyWindow(mWindow);
   SDL_Quit();
+}
+
+void dk2test::destroyOVR() {
+  ovrHmd_Destroy(mHmd);
+  mHmd = NULL;
+
+  ovr_Shutdown();
+}
+
+void* dk2test::getNativeWindowHandle() {
+  SDL_SysWMinfo window_info;
+  SDL_VERSION(&window_info.version);
+  SDL_GetWindowWMInfo(mWindow, &window_info);
+
+#ifdef _WIN32
+  return (void*) window_info.info.win.window;
+#endif
+}
+
+void dk2test::createScene() {
+  mSceneManager = mRoot->createSceneManager(Ogre::ST_GENERIC);
+  mRootNode = mSceneManager->getRootSceneNode();
+
+  mSceneManager->setSkyBox(true, "Examples/SpaceSkyBox");
+
+  // for gross movement by WASD and control sticks
+  Ogre::SceneNode* body_node = mRootNode->createChildSceneNode("BodyNode");
+
+  // for finer movement by positional tracking
+  Ogre::SceneNode* head_node = body_node->createChildSceneNode("HeadNode");
+
+  Ogre::Camera* left_eye = mSceneManager->createCamera("LeftEye");
+  head_node->attachObject(left_eye);
+  Ogre::Camera* right_eye = mSceneManager->createCamera("RightEye");
+  head_node->attachObject(right_eye);
+
+  mEyeRenderTarget = mEyeRenderTexture->getBuffer()->getRenderTarget();
+  int z_order;
+  float left, top, width, height;
+
+  z_order = 0;
+  left = 0.0f; top = 0.0;
+  width = 0.5f; height = 1.0f;
+  mEyeRenderTarget->addViewport(left_eye, z_order, left, top, width, height);
+
+  z_order = 1;
+  left = 0.5f; top = 0.0;
+  width = 0.5f; height = 1.0f;
+  mEyeRenderTarget->addViewport(right_eye, z_order, left, top, width, height);
+
+  mEyeRenderTarget->setAutoUpdated(false);
+
+  auto node = mRootNode->createChildSceneNode("ogrehead");
+  auto ogrehead = mSceneManager->createEntity("ogrehead.mesh");
+  node->attachObject(ogrehead);
+  node->setPosition(Vector3(0, 0, 0));
+  auto scale = 0.1f;
+  node->setScale(Vector3(scale, scale, scale));
+
+  body_node->setPosition(Vector3(0, 0, 10));
+  body_node->lookAt(Vector3(0, 0, 0), Node::TS_WORLD);
+}
+
+void dk2test::createRenderTextureViewer() {
+  mDummySceneManager = mRoot->createSceneManager(ST_GENERIC);
+  mDummySceneManager->setSkyBox(true, "Examples/EveningSkyBox");
+  auto root_node = mDummySceneManager->getRootSceneNode();
+  auto node = root_node->createChildSceneNode("Background");
+  auto dummy_camera = mDummySceneManager->createCamera("dummy0");
+  node->attachObject(dummy_camera);
+
+  auto rect = new Rectangle2D(true);
+  rect->setCorners(-1, 1, 1, -1);
+
+  MaterialPtr material = MaterialManager::getSingleton().create(
+      "VR_Quad", ResourceGroupManager::DEFAULT_RESOURCE_GROUP_NAME);
+  material->getTechnique(0)->getPass(0)->createTextureUnitState("EyeRenderTarget");
+  material->getTechnique(0)->getPass(0)->setDepthCheckEnabled(false);
+  material->getTechnique(0)->getPass(0)->setDepthWriteEnabled(false);
+  material->getTechnique(0)->getPass(0)->setLightingEnabled(false);
+
+  rect->setMaterial("VR_Quad");
+  rect->setBoundingBox(AxisAlignedBox::BOX_INFINITE);
+
+  node->attachObject(rect);
+
+  auto viewport = mRenderWindow->addViewport(dummy_camera);
 }
 
 void dk2test::loop() {
@@ -137,5 +299,7 @@ void dk2test::loop() {
     }
 
     // render here
+    mEyeRenderTarget->update();
+    mRoot->renderOneFrame();
   }
 }

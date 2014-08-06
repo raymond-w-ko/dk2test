@@ -13,18 +13,36 @@ class dk2test {
     kNumEyes,
   };
 
+  void changeToDirectoryOfExecutable();
+
   void initOVR();
   void initSDL();
   void initOVR2();
+  void initOgre();
 
+  void destroyOgre();
   void destroySDL();
   void destroyOVR();
 
+  void createScene();
+  void createRenderTextureViewer();
+
+  void* getNativeWindowHandle();
+
   ovrHmd mHmd;
   SDL_Window* mWindow;
-  SDL_GLContext  mGLContext;
+
+  Ogre::Root* mRoot;
+  Ogre::RenderWindow* mRenderWindow;
 
   OVR::Sizei mRecommendedTexSize[2];
   OVR::Sizei mRenderTargetSize;
   int mEyeRenderMultisample;
+  Ogre::TexturePtr mEyeRenderTexture;
+  Ogre::RenderTarget* mEyeRenderTarget;
+
+  Ogre::SceneManager* mSceneManager;
+  Ogre::SceneNode* mRootNode;
+
+  Ogre::SceneManager* mDummySceneManager;
 };
