@@ -169,6 +169,8 @@ void dk2test::initOVR2() {
       NULL,
       hw_gamma_correction,
       mEyeRenderMultisample);
+  int texture_id;
+  mEyeRenderTexture->getCustomAttribute("GLID", &texture_id);
 
   // might have changed due to hardware limitations
   mRenderTargetSize.w = mEyeRenderTexture->getWidth();
