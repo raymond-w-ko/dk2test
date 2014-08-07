@@ -221,6 +221,7 @@ void dk2test::createScene() {
   mRootNode = mSceneManager->getRootSceneNode();
 
   mSceneManager->setSkyBox(true, "Examples/SpaceSkyBox");
+  mSceneManager->setAmbientLight(ColourValue(0.333f, 0.333f, 0.333f));
 
   // for gross movement by WASD and control sticks
   Ogre::SceneNode* body_node = mRootNode->createChildSceneNode("BodyNode");
@@ -230,8 +231,10 @@ void dk2test::createScene() {
 
   Ogre::Camera* left_eye = mSceneManager->createCamera("LeftEye");
   head_node->attachObject(left_eye);
+  left_eye->setNearClipDistance(0.1f);
   Ogre::Camera* right_eye = mSceneManager->createCamera("RightEye");
   head_node->attachObject(right_eye);
+  right_eye->setNearClipDistance(0.1f);
 
   mEyeRenderTarget = mEyeRenderTexture->getBuffer()->getRenderTarget();
   int z_order;
@@ -249,15 +252,33 @@ void dk2test::createScene() {
 
   mEyeRenderTarget->setAutoUpdated(false);
 
+  body_node->setPosition(Vector3(0, 0, 100));
+  body_node->lookAt(Vector3(0, 0, 0), Node::TS_WORLD);
+
   auto node = mRootNode->createChildSceneNode("ogrehead");
   auto ogrehead = mSceneManager->createEntity("ogrehead.mesh");
   node->attachObject(ogrehead);
   node->setPosition(Vector3(0, 0, 0));
-  auto scale = 0.1f;
+  auto scale = 0.25f;
   node->setScale(Vector3(scale, scale, scale));
+  node->lookAt(Vector3(0, 0, -1), Node::TS_WORLD);
 
-  body_node->setPosition(Vector3(0, 0, 10));
-  body_node->lookAt(Vector3(0, 0, 0), Node::TS_WORLD);
+  auto light = mSceneManager->createLight();
+  node->attachObject(light);
+  light->setType(Ogre::Light::LT_POINT);
+  light->setPosition(Ogre::Vector3(0, 0, 100));
+
+  node = mRootNode->createChildSceneNode("sinbad");
+  auto sinbad = mSceneManager->createEntity("Sinbad.mesh");
+  mAnimatingEntities.push_back(sinbad);
+  auto anim_state = sinbad->getAnimationState("Dance");
+  anim_state->setEnabled(true);
+  anim_state->setLoop(true);
+  node->attachObject(sinbad);
+  scale = 4.0f;
+  node->setScale(Vector3(scale, scale, scale));
+  node->lookAt(Vector3(0, 0, -1), Node::TS_WORLD);
+  node->setPosition(Vector3(-20, 0, 0));
 }
 
 void dk2test::createRenderTextureViewer() {
@@ -289,6 +310,7 @@ void dk2test::createRenderTextureViewer() {
 void dk2test::loop() {
   SDL_Event e;
   bool quit = false;
+  Timer* timer = new Timer;
 
   while (!quit) {
     while (SDL_PollEvent(&e)) {
@@ -296,6 +318,13 @@ void dk2test::loop() {
         case SDL_QUIT:
           quit = true;
       }
+    }
+
+    double us = timer->getMicroseconds() / 1e6;
+    timer->reset();
+
+    for (auto entity : mAnimatingEntities) {
+      entity->getAnimationState("Dance")->addTime(us);
     }
 
     // render here
