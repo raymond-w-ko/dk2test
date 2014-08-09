@@ -17,6 +17,9 @@ void notice(std::string message) {
 
 
 int main(int argc, char* argv[]) {
+  auto path = boost::filesystem::current_path();
+  boost::filesystem::current_path(path / "..");
+
   dk2test instance;
   instance.loop();
   return 0;

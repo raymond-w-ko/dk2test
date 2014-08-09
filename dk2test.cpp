@@ -4,14 +4,13 @@
 using namespace Ogre;
 
 dk2test::dk2test() {
-  this->changeToDirectoryOfExecutable();
   this->initOVR();
   this->initSDL();
   this->initOgre();
   this->initOVR2();
 
   this->createScene();
-  this->createRenderTextureViewer();
+  //this->createRenderTextureViewer();
 }
 
 dk2test::~dk2test() {
@@ -19,41 +18,13 @@ dk2test::~dk2test() {
   //this->destroyOVR();
 }
 
-void dk2test::changeToDirectoryOfExecutable() {
-#if defined(_WIN32)
-	TCHAR szFullModulePath[_MAX_PATH + 1];
-	GetModuleFileName(NULL, szFullModulePath, _MAX_PATH);
-	szFullModulePath[_MAX_PATH] = '\0';
-
-	TCHAR szDrive[_MAX_DRIVE];
-	TCHAR szDir[_MAX_DIR];
-	TCHAR szFname[_MAX_FNAME];
-	TCHAR szExt[_MAX_EXT];
-
-	_tsplitpath_s(szFullModulePath,
-               szDrive, _MAX_DRIVE,
-               szDir, _MAX_DIR,
-               szFname, _MAX_FNAME,
-               szExt, _MAX_EXT);
-
-  TCHAR szWorkingDir[_MAX_PATH];
-  _tmakepath_s( szWorkingDir, _MAX_PATH, szDrive, szDir, NULL, NULL );
-
-  std::wstring working_dir(szWorkingDir);
-  working_dir += L"\\..";
-	_tchdir(working_dir.c_str());
-#else
-# error "changeToDirectoryOfExecutable() NYI"
-#endif
-}
-
 void dk2test::initOVR() {
   ovr_Initialize();
 
   mHmd = ovrHmd_Create(0);
   if (!mHmd) {
-    notice("Could not find a real Oculus head mounted display! Creating a debug one based on the DK1.");
-    mHmd = ovrHmd_CreateDebug(ovrHmd_DK1);
+    //notice("Could not find a real Oculus head mounted display! Creating a debug one based on the DK1.");
+    mHmd = ovrHmd_CreateDebug(ovrHmd_DK2);
   }
 
   mRecommendedTexSize[kLeft] = ovrHmd_GetFovTextureSize(
@@ -75,7 +46,7 @@ void dk2test::initSDL() {
 
   static const unsigned int flags =
       SDL_WINDOW_SHOWN |
-      //SDL_WINDOW_BORDERLESS |
+      SDL_WINDOW_BORDERLESS |
       0;
   mWindow = SDL_CreateWindow(
       "dk2test",
@@ -124,7 +95,7 @@ void dk2test::initOgre() {
       false,
       &params);
   mRenderWindow->setVisible(true);
-  mRenderWindow->setAutoUpdated(true);
+  mRenderWindow->setAutoUpdated(false);
   mRenderWindow->setActive(true);
 
   rendersystems[0]->clearFrameBuffer(Ogre::FBT_COLOUR, Ogre::ColourValue::Red);
@@ -169,8 +140,7 @@ void dk2test::initOVR2() {
       NULL,
       hw_gamma_correction,
       mEyeRenderMultisample);
-  int texture_id;
-  mEyeRenderTexture->getCustomAttribute("GLID", &texture_id);
+  mEyeRenderTexture->getCustomAttribute("GLID", &mEyeRenderTargetTextureId);
 
   // might have changed due to hardware limitations
   mRenderTargetSize.w = mEyeRenderTexture->getWidth();
@@ -178,17 +148,25 @@ void dk2test::initOVR2() {
 
   ovrGLConfig cfg;
   cfg.OGL.Header.API = ovrRenderAPI_OpenGL;
-  cfg.OGL.Header.RTSize = mRenderTargetSize;
+  cfg.OGL.Header.RTSize = OVR::Sizei(mHmd->Resolution.w, mHmd->Resolution.h);
   cfg.OGL.Header.Multisample = mEyeRenderMultisample;
   cfg.OGL.Window = (decltype(cfg.OGL.Window)) this->getNativeWindowHandle();
   cfg.OGL.DC = NULL;
 
-  int distortionCaps = 0;
-  ovrEyeRenderDesc eyeRenderDesc[2];
-  
+  int distortionCaps =
+      ovrDistortionCap_Chromatic |
+      ovrDistortionCap_Vignette |
+      ovrDistortionCap_TimeWarp |
+      ovrDistortionCap_Overdrive |
+      // needed since OGRE does flipping to compensate for OpenGL texture coordinate system
+      ovrDistortionCap_FlipInput |
+      0;
+
   ovrBool result = ovrHmd_ConfigureRendering(
       mHmd, &cfg.Config, distortionCaps,
-      mHmd->DefaultEyeFov, eyeRenderDesc);
+      mHmd->DefaultEyeFov, mEyeRenderDesc);
+
+  ovrHmd_SetEnabledCaps(mHmd, ovrHmdCap_LowPersistence | ovrHmdCap_DynamicPrediction);
 }
 
 void dk2test::destroyOgre() {
@@ -222,7 +200,7 @@ void dk2test::createScene() {
   mSceneManager = mRoot->createSceneManager(Ogre::ST_GENERIC);
   mRootNode = mSceneManager->getRootSceneNode();
 
-  mSceneManager->setSkyBox(true, "Examples/SpaceSkyBox");
+  mSceneManager->setSkyBox(true, "Examples/EveningSkyBox");
   mSceneManager->setAmbientLight(ColourValue(0.333f, 0.333f, 0.333f));
 
   // for gross movement by WASD and control sticks
@@ -234,9 +212,12 @@ void dk2test::createScene() {
   Ogre::Camera* left_eye = mSceneManager->createCamera("LeftEye");
   head_node->attachObject(left_eye);
   left_eye->setNearClipDistance(0.1f);
+  mEyeCameras.push_back(left_eye);
+
   Ogre::Camera* right_eye = mSceneManager->createCamera("RightEye");
   head_node->attachObject(right_eye);
   right_eye->setNearClipDistance(0.1f);
+  mEyeCameras.push_back(right_eye);
 
   mEyeRenderTarget = mEyeRenderTexture->getBuffer()->getRenderTarget();
   int z_order;
@@ -254,7 +235,7 @@ void dk2test::createScene() {
 
   mEyeRenderTarget->setAutoUpdated(false);
 
-  body_node->setPosition(Vector3(0, 0, 100));
+  body_node->setPosition(Vector3(0, 0, 50));
   body_node->lookAt(Vector3(0, 0, 0), Node::TS_WORLD);
 
   auto node = mRootNode->createChildSceneNode("ogrehead");
@@ -311,14 +292,13 @@ void dk2test::createRenderTextureViewer() {
 
 void dk2test::loop() {
   SDL_Event e;
-  bool quit = false;
   Timer* timer = new Timer;
 
-  while (!quit) {
+  while (true) {
     while (SDL_PollEvent(&e)) {
       switch (e.type) {
         case SDL_QUIT:
-          quit = true;
+          return;
       }
     }
 
@@ -326,11 +306,75 @@ void dk2test::loop() {
     timer->reset();
 
     for (auto entity : mAnimatingEntities) {
-      entity->getAnimationState("Dance")->addTime(us);
+      entity->getAnimationState("Dance")->addTime((float)us);
     }
 
-    // render here
-    mEyeRenderTarget->update();
-    mRoot->renderOneFrame();
+    this->renderOculusFrame();
   }
+}
+
+static inline const Ogre::Matrix4& ToOgreMatrix(const OVR::Matrix4f& src, Ogre::Matrix4& dst) {
+  for (int i = 0; i < 4; ++i) {
+    for (int j = 0; j < 4; ++j) {
+      dst[i][j] = src.M[i][j];
+    }
+  }
+
+  return dst;
+}
+
+void dk2test::renderOculusFrame() {
+  using namespace OVR;
+
+  ovrFrameTiming hmd_frame_timing = ovrHmd_BeginFrame(mHmd, 0);
+  ovrPosef head_pose[2];
+
+  Ogre::Matrix4 m;
+
+  for (int eye_index = 0; eye_index < ovrEye_Count; ++eye_index) {
+    ovrEyeType eye = mHmd->EyeRenderOrder[eye_index];
+    head_pose[eye] = ovrHmd_GetEyePose(mHmd, eye);
+
+    Quatf orientation = Quatf(head_pose[eye].Orientation);
+    Matrix4f proj = ovrMatrix4f_Projection(
+        mEyeRenderDesc[eye].Fov, 0.01f, 10000.0f, true);
+
+
+    auto camera = mEyeCameras[eye_index];
+    auto pos = camera->getDerivedPosition();
+    Vector3f world_eye_pos(pos.x, pos.y, pos.z);
+    Matrix4f view = (Matrix4f(orientation.Inverted()) * Matrix4f::Translation(-world_eye_pos));
+    view = Matrix4f::Translation(mEyeRenderDesc[eye].ViewAdjust) * view;
+
+    camera->setCustomViewMatrix(true, ToOgreMatrix(view, m));
+
+    ToOgreMatrix(proj, m);
+    camera->setCustomProjectionMatrix(true, m);
+  }
+
+  mRoot->renderOneFrame();
+  mEyeRenderTarget->update();
+
+  ovrGLTexture gl_eye_textures[2];
+  ovrTexture eye_textures[2];
+  for (int i = 0; i < ovrEye_Count; ++i ) {
+    gl_eye_textures[i].OGL.Header.API = ovrRenderAPI_OpenGL;
+    gl_eye_textures[i].OGL.Header.TextureSize = mRenderTargetSize;
+    gl_eye_textures[i].OGL.TexId = mEyeRenderTargetTextureId;
+
+    auto& rect = gl_eye_textures[i].OGL.Header.RenderViewport;
+    rect.Size = mRenderTargetSize;
+    rect.Size.w /= 2;
+    rect.Pos.y = 0;
+
+    if (i == ovrEye_Left) {
+      rect.Pos.x = 0;
+    } else if (i == ovrEye_Right) {
+      rect.Pos.x = (mRenderTargetSize.w + 1) / 2;
+    }
+
+    eye_textures[i] = gl_eye_textures[i].Texture;
+  }
+
+  ovrHmd_EndFrame(mHmd, head_pose, eye_textures);
 }

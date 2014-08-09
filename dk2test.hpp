@@ -5,6 +5,7 @@ class dk2test {
   dk2test();
   ~dk2test();
   void loop();
+  void renderOculusFrame();
 
  private:
   enum EyeEnum {
@@ -12,8 +13,6 @@ class dk2test {
     kRight = 1,
     kNumEyes,
   };
-
-  void changeToDirectoryOfExecutable();
 
   void initOVR();
   void initSDL();
@@ -40,9 +39,12 @@ class dk2test {
   int mEyeRenderMultisample;
   Ogre::TexturePtr mEyeRenderTexture;
   Ogre::RenderTarget* mEyeRenderTarget;
+  int mEyeRenderTargetTextureId;
+  ovrEyeRenderDesc mEyeRenderDesc[2];
 
   Ogre::SceneManager* mSceneManager;
   Ogre::SceneNode* mRootNode;
+  std::vector<Ogre::Camera*> mEyeCameras;
   std::vector<Ogre::Entity*> mAnimatingEntities;
 
   Ogre::SceneManager* mDummySceneManager;
