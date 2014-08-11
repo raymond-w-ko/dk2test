@@ -396,18 +396,6 @@ void dk2test::renderOculusFrame() {
     auto head_pos = head_pose[eye_index].Position;
     mHeadSceneNode->setPosition(Ogre::Vector3(head_pos.x, head_pos.y, head_pos.z));
 
-#if 0
-    char buf[1024];
-    if (eye_index == ovrEye_Left) {
-      OutputDebugStringA("L: ");
-    } else if (eye_index == ovrEye_Right) {
-      OutputDebugStringA("R: ");
-    }
-    view.ToString(buf, 1024);
-    OutputDebugStringA(buf);
-    OutputDebugStringA("\n");
-#endif
-
     eye.RenderTarget->update();
   }
 
