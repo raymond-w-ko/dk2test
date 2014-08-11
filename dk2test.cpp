@@ -231,6 +231,7 @@ void dk2test::CreateScene() {
 
   // for finer movement by positional tracking
   Ogre::SceneNode* head_node = body_node->createChildSceneNode("HeadNode");
+  mHeadSceneNode = head_node;
 
   Ogre::Camera* left_eye = mSceneManager->createCamera("LeftEye");
   head_node->attachObject(left_eye);
@@ -242,33 +243,58 @@ void dk2test::CreateScene() {
   right_eye->setNearClipDistance(0.1f);
   mEyeCameras.push_back(right_eye);
 
-  body_node->setPosition(Vector3(0, 0, 50));
+  body_node->setPosition(Vector3(0, 0, 0.5));
   body_node->lookAt(Vector3(0, 0, 0), Node::TS_WORLD);
 
   auto node = mRootNode->createChildSceneNode("ogrehead");
   auto ogrehead = mSceneManager->createEntity("ogrehead.mesh");
   node->attachObject(ogrehead);
   node->setPosition(Vector3(0, 0, 0));
-  auto scale = 0.25f;
+  auto scale = 0.005f;
   node->setScale(Vector3(scale, scale, scale));
   node->lookAt(Vector3(0, 0, -1), Node::TS_WORLD);
 
   auto light = mSceneManager->createLight();
   node->attachObject(light);
   light->setType(Ogre::Light::LT_POINT);
-  light->setPosition(Ogre::Vector3(0, 0, 100));
+  light->setPosition(Ogre::Vector3(0, 0, 1));
 
   node = mRootNode->createChildSceneNode("sinbad");
   auto sinbad = mSceneManager->createEntity("Sinbad.mesh");
-  mAnimatingEntities.push_back(sinbad);
   auto anim_state = sinbad->getAnimationState("Dance");
+  mAnimatingStates.push_back(anim_state);
   anim_state->setEnabled(true);
   anim_state->setLoop(true);
   node->attachObject(sinbad);
-  scale = 4.0f;
+  scale = 0.05f;
   node->setScale(Vector3(scale, scale, scale));
   node->lookAt(Vector3(0, 0, -1), Node::TS_WORLD);
-  node->setPosition(Vector3(-20, 0, 0));
+  node->setPosition(Vector3(-0.25f, 0, 0));
+
+  node = mRootNode->createChildSceneNode("jaiqua");
+  auto jaiqua = mSceneManager->createEntity("jaiqua.mesh");
+  anim_state = jaiqua->getAnimationState("Sneak");
+  mAnimatingStates.push_back(anim_state);
+  anim_state->setEnabled(true);
+  anim_state->setLoop(true);
+  node->attachObject(jaiqua);
+  scale = 0.0125f;
+  node->setScale(Vector3(scale, scale, scale));
+  node->lookAt(Vector3(0, 0, 1), Node::TS_WORLD);
+  node->setPosition(Vector3(0.25f, 0, -0.25f));
+}
+
+void dk2test::AttachSceneToRenderTargets() {
+  for (int i = 0; i < ovrEye_Count; ++i) {
+    auto& eye = mEyes[i];
+    auto camera = mEyeCameras[i];
+    auto render_target = eye.Texture->getBuffer()->getRenderTarget();
+    eye.RenderTarget = render_target;
+    static const int z_order = 0;
+    static const float left = 0.0f, top = 0.0f, width = 1.0f, height = 1.0f;
+    render_target->addViewport(camera, z_order, left, top, width, height);
+    render_target->setAutoUpdated(false);
+  }
 }
 
 #if 0
@@ -308,14 +334,22 @@ void dk2test::loop() {
       switch (e.type) {
         case SDL_QUIT:
           return;
+        case SDL_KEYDOWN: {
+          if (e.key.repeat)
+            break;
+          if (e.key.keysym.scancode == SDL_SCANCODE_SPACE) {
+            ovrHmd_RecenterPose(mHmd);
+          }
+          break;
+        }
       }
     }
 
     double us = timer->getMicroseconds() / 1e6;
     timer->reset();
 
-    for (auto entity : mAnimatingEntities) {
-      entity->getAnimationState("Dance")->addTime((float)us);
+    for (auto anim_state : mAnimatingStates) {
+      anim_state->addTime((float)us);
     }
 
     mRoot->renderOneFrame();
@@ -359,6 +393,9 @@ void dk2test::renderOculusFrame() {
     camera->setCustomViewMatrix(true, ToOgreMatrix(view, m));
     camera->setCustomProjectionMatrix(true, ToOgreMatrix(proj, m));
 
+    auto head_pos = head_pose[eye_index].Position;
+    mHeadSceneNode->setPosition(Ogre::Vector3(head_pos.x, head_pos.y, head_pos.z));
+
 #if 0
     char buf[1024];
     if (eye_index == ovrEye_Left) {
@@ -391,17 +428,4 @@ void dk2test::renderOculusFrame() {
   }
 
   ovrHmd_EndFrame(mHmd, head_pose, eye_textures);
-}
-
-void dk2test::AttachSceneToRenderTargets() {
-  for (int i = 0; i < ovrEye_Count; ++i) {
-    auto& eye = mEyes[i];
-    auto camera = mEyeCameras[i];
-    auto render_target = eye.Texture->getBuffer()->getRenderTarget();
-    eye.RenderTarget = render_target;
-    static const int z_order = 0;
-    static const float left = 0.0f, top = 0.0f, width = 1.0f, height = 1.0f;
-    render_target->addViewport(camera, z_order, left, top, width, height);
-    render_target->setAutoUpdated(false);
-  }
 }

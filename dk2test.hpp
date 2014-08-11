@@ -58,7 +58,8 @@ class dk2test {
   Ogre::SceneManager* mSceneManager;
   Ogre::SceneNode* mRootNode;
   std::vector<Ogre::Camera*> mEyeCameras;
-  std::vector<Ogre::Entity*> mAnimatingEntities;
+  Ogre::SceneNode* mHeadSceneNode;
+  std::vector<Ogre::AnimationState*> mAnimatingStates;
 
   Ogre::SceneManager* mDummySceneManager;
 };
