@@ -2,8 +2,33 @@
 
 class dk2test {
  public:
+  struct Eye {
+    // 1.0 gets you a render target size that gives you 1.0 center pixels after distortion
+    // decrease this if you need FPS
+    float RenderQuality;
+    // 1.0 is the default FOV
+    // last resort, as this will break immersion
+    float FovQuality;
+    
+    ovrFovPort Fov;
+    ovrSizei TextureSize;
+
+    Ogre::TexturePtr Texture;
+    int TextureId;
+    Ogre::RenderTarget* RenderTarget;
+
+    ovrEyeRenderDesc RenderDesc;
+  };
+
   dk2test();
   ~dk2test();
+
+  void* GetNativeWindowHandle();
+  void ConfigureRenderingQuality(float render_quality, float fov_quality);
+
+  void CreateScene();
+  void AttachSceneToRenderTargets();
+
   void loop();
   void renderOculusFrame();
 
@@ -16,31 +41,19 @@ class dk2test {
 
   void initOVR();
   void initSDL();
-  void initOVR2();
   void initOgre();
 
-  void destroyOgre();
-  void destroySDL();
-  void destroyOVR();
-
-  void createScene();
   void createRenderTextureViewer();
 
-  void* getNativeWindowHandle();
-
+  bool mUsingDebugHmd;
   ovrHmd mHmd;
+
   SDL_Window* mWindow;
 
   Ogre::Root* mRoot;
   Ogre::RenderWindow* mRenderWindow;
 
-  OVR::Sizei mRecommendedTexSize[2];
-  OVR::Sizei mRenderTargetSize;
-  int mEyeRenderMultisample;
-  Ogre::TexturePtr mEyeRenderTexture;
-  Ogre::RenderTarget* mEyeRenderTarget;
-  int mEyeRenderTargetTextureId;
-  ovrEyeRenderDesc mEyeRenderDesc[2];
+  Eye mEyes[2];
 
   Ogre::SceneManager* mSceneManager;
   Ogre::SceneNode* mRootNode;

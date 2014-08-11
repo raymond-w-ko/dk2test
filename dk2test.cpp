@@ -3,57 +3,75 @@
 
 using namespace Ogre;
 
-dk2test::dk2test() {
+dk2test::dk2test() 
+    : mUsingDebugHmd(false),
+      mHmd(NULL) {
   this->initOVR();
   this->initSDL();
   this->initOgre();
-  this->initOVR2();
-
-  this->createScene();
-  //this->createRenderTextureViewer();
 }
 
 dk2test::~dk2test() {
-  this->destroySDL();
-  //this->destroyOVR();
+  mEyes[0].Texture.setNull();
+  mEyes[1].Texture.setNull();
+  delete mRoot;
+  mRoot = NULL;
+
+  SDL_DestroyWindow(mWindow);
+  SDL_Quit();
+
+  ovrHmd_Destroy(mHmd);
+  mHmd = NULL;
+  ovr_Shutdown();
 }
 
 void dk2test::initOVR() {
-  ovr_Initialize();
+  if (!ovr_Initialize()) {
+    error("failed to initialize OVR");
+  }
 
   mHmd = ovrHmd_Create(0);
   if (!mHmd) {
-    //notice("Could not find a real Oculus head mounted display! Creating a debug one based on the DK1.");
     mHmd = ovrHmd_CreateDebug(ovrHmd_DK2);
+    mUsingDebugHmd = true;
+  }
+  if (!mHmd) {
+    error("failed to create real or debug HMD");
   }
 
-  mRecommendedTexSize[kLeft] = ovrHmd_GetFovTextureSize(
-      mHmd, ovrEye_Left, mHmd->DefaultEyeFov[0], 1.0f);
-  mRecommendedTexSize[kRight] = ovrHmd_GetFovTextureSize(
-      mHmd, ovrEye_Right, mHmd->DefaultEyeFov[1], 1.0f);
+  // TODO: do we want these to be configurable?
+  static const unsigned int supported_tracking_caps = 
+      ovrTrackingCap_Orientation |
+      ovrTrackingCap_MagYawCorrection |
+      ovrTrackingCap_Position;
+  static const unsigned int required_tracking_caps = 0;
+  if (!ovrHmd_ConfigureTracking(mHmd, supported_tracking_caps, required_tracking_caps)) {
+    error("failed to configure tracking capabilities");
+  }
 
-  mRenderTargetSize.w = mRecommendedTexSize[kLeft].w + mRecommendedTexSize[kRight].w;
-  mRenderTargetSize.h = std::max(mRecommendedTexSize[kLeft].h, mRecommendedTexSize[kRight].h);
-
-  static const unsigned int supportedTrackingCaps = 
-      ovrTrackingCap_Orientation | ovrTrackingCap_MagYawCorrection | ovrTrackingCap_Position;
-  static const unsigned int requiredTrackingCaps = 0;
-  ovrHmd_ConfigureTracking(mHmd, supportedTrackingCaps, requiredTrackingCaps);
+  // TODO: do we want these to be configurable?
+  static const unsigned int hmd_caps =
+      //ovrHmdCap_NoVSync |
+      ovrHmdCap_LowPersistence |
+      ovrHmdCap_DynamicPrediction;
+  ovrHmd_SetEnabledCaps(mHmd, hmd_caps);
 }
 
 void dk2test::initSDL() {
   SDL_Init(SDL_INIT_VIDEO);
 
-  static const unsigned int flags =
-      SDL_WINDOW_SHOWN |
-      SDL_WINDOW_BORDERLESS |
-      0;
+  static const unsigned int flags = SDL_WINDOW_SHOWN | SDL_WINDOW_BORDERLESS;
+  int x = SDL_WINDOWPOS_CENTERED;
+  int y = SDL_WINDOWPOS_CENTERED;
+  if (!mUsingDebugHmd) {
+    x = mHmd->WindowsPos.x;
+    y = mHmd->WindowsPos.y;
+  }
   mWindow = SDL_CreateWindow(
       "dk2test",
-      SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+      x, y,
       this->mHmd->Resolution.w, this->mHmd->Resolution.h,
-      flags
-      );
+      flags);
   if (!mWindow) {
     error("Could not create SDL2 window!");
   }
@@ -64,7 +82,7 @@ void dk2test::initOgre() {
   std::string plugin_filename = "";
   std::string config_filename = "";
   std::string log_filename = "Ogre.log";
-  mRoot = new Ogre::Root(plugin_filename, config_filename, log_filename);
+  mRoot = new Root(plugin_filename, config_filename, log_filename);
 
   // load dynamic libraries
   std::vector<std::string> dlls = {
@@ -86,8 +104,8 @@ void dk2test::initOgre() {
 
   mRoot->initialise(false);
 
-  Ogre::NameValuePairList params;
-  params["externalWindowHandle"] = Ogre::StringConverter::toString((size_t)getNativeWindowHandle());
+  NameValuePairList params;
+  params["externalWindowHandle"] = StringConverter::toString((size_t)GetNativeWindowHandle());
 
   mRenderWindow = mRoot->createRenderWindow(
       "OGRE Render Window",
@@ -98,8 +116,8 @@ void dk2test::initOgre() {
   mRenderWindow->setAutoUpdated(false);
   mRenderWindow->setActive(true);
 
-  rendersystems[0]->clearFrameBuffer(Ogre::FBT_COLOUR, Ogre::ColourValue::Red);
-  mRoot->renderOneFrame(0.0f);
+  //rendersystems[0]->clearFrameBuffer(FBT_COLOUR, ColourValue::Black);
+  //mRoot->renderOneFrame(0.0f);
 
   // Load resource paths from config file
   ConfigFile config_file;
@@ -124,69 +142,74 @@ void dk2test::initOgre() {
   ResourceGroupManager::getSingleton().initialiseAllResourceGroups();
 }
 
-void dk2test::initOVR2() {
-  static const int num_mipmaps = 0;
-  static const bool hw_gamma_correction = false;
-  mEyeRenderMultisample = 0;
+void dk2test::ConfigureRenderingQuality(float render_quality, float fov_quality) {
+  static const int multisample = 0;
 
-  mEyeRenderTexture = TextureManager::getSingleton().createManual(
-      "EyeRenderTarget",
-      ResourceGroupManager::DEFAULT_RESOURCE_GROUP_NAME,
-      TEX_TYPE_2D,
-      mRenderTargetSize.w, mRenderTargetSize.h,
-      num_mipmaps,
-      PF_R8G8B8,
-      TU_RENDERTARGET,
-      NULL,
-      hw_gamma_correction,
-      mEyeRenderMultisample);
-  mEyeRenderTexture->getCustomAttribute("GLID", &mEyeRenderTargetTextureId);
+  for (int i = 0; i < ovrEye_Count; ++i) {
+    auto& eye = mEyes[i];
+    eye.RenderQuality = render_quality;
+    eye.FovQuality = fov_quality;
 
-  // might have changed due to hardware limitations
-  mRenderTargetSize.w = mEyeRenderTexture->getWidth();
-  mRenderTargetSize.h = mEyeRenderTexture->getHeight();
+    auto& fov = mEyes[i].Fov;
+    const auto& max_fov = mHmd->MaxEyeFov[i];
+    const auto& default_fov = mHmd->DefaultEyeFov[i];
+    fov.UpTan = std::min(eye.FovQuality * default_fov.UpTan, max_fov.UpTan);
+    fov.DownTan = std::min(eye.FovQuality * default_fov.DownTan, max_fov.DownTan);
+    fov.LeftTan = std::min(eye.FovQuality * default_fov.LeftTan, max_fov.LeftTan);
+    fov.RightTan = std::min(eye.FovQuality * default_fov.RightTan, max_fov.RightTan);
 
-  ovrGLConfig cfg;
-  cfg.OGL.Header.API = ovrRenderAPI_OpenGL;
-  cfg.OGL.Header.RTSize = OVR::Sizei(mHmd->Resolution.w, mHmd->Resolution.h);
-  cfg.OGL.Header.Multisample = mEyeRenderMultisample;
-  cfg.OGL.Window = (decltype(cfg.OGL.Window)) this->getNativeWindowHandle();
-  cfg.OGL.DC = NULL;
+    eye.TextureSize = ovrHmd_GetFovTextureSize(mHmd, (ovrEyeType)i, fov, eye.RenderQuality);
 
-  int distortionCaps =
+    if (eye.Texture.get()) {
+      std::string texture_name(eye.Texture->getName());
+      eye.Texture.setNull();
+      Ogre::TextureManager::getSingleton().remove(texture_name);
+    }
+
+    static const int num_mipmaps = 0;
+    static const bool hw_gamma_correction = false;
+    eye.Texture = TextureManager::getSingleton().createManual(
+        "EyeRenderTarget" + boost::lexical_cast<std::string>(i),
+        ResourceGroupManager::DEFAULT_RESOURCE_GROUP_NAME,
+        TEX_TYPE_2D,
+        eye.TextureSize.w, eye.TextureSize.h,
+        num_mipmaps,
+        PF_R8G8B8,
+        TU_RENDERTARGET,
+        NULL,
+        hw_gamma_correction,
+        multisample);
+    eye.Texture->getCustomAttribute("GLID", &eye.TextureId);
+
+    // might have changed due to hardware limitations
+    eye.TextureSize.w = eye.Texture->getWidth();
+    eye.TextureSize.h = eye.Texture->getHeight();
+  }
+
+  ovrGLConfig config;
+  config.OGL.Header.API = ovrRenderAPI_OpenGL;
+  config.OGL.Header.RTSize = OVR::Sizei(mHmd->Resolution.w, mHmd->Resolution.h);
+  config.OGL.Header.Multisample = multisample;
+  config.OGL.Window = (decltype(config.OGL.Window)) this->GetNativeWindowHandle();
+  config.OGL.DC = NULL;
+
+  int distortion_caps =
       ovrDistortionCap_Chromatic |
       ovrDistortionCap_Vignette |
       ovrDistortionCap_TimeWarp |
       ovrDistortionCap_Overdrive |
       // needed since OGRE does flipping to compensate for OpenGL texture coordinate system
-      ovrDistortionCap_FlipInput |
-      0;
-
-  ovrBool result = ovrHmd_ConfigureRendering(
-      mHmd, &cfg.Config, distortionCaps,
-      mHmd->DefaultEyeFov, mEyeRenderDesc);
-
-  ovrHmd_SetEnabledCaps(mHmd, ovrHmdCap_LowPersistence | ovrHmdCap_DynamicPrediction);
+      ovrDistortionCap_FlipInput;
+  ovrFovPort fovs[2] = { mEyes[0].Fov, mEyes[1].Fov };
+  ovrEyeRenderDesc render_descs[2];
+  ovrHmd_ConfigureRendering(
+      mHmd, &config.Config, distortion_caps,
+      fovs, render_descs);
+  mEyes[0].RenderDesc = render_descs[0];
+  mEyes[1].RenderDesc = render_descs[1];
 }
 
-void dk2test::destroyOgre() {
-  delete mRoot;
-  mRoot = NULL;
-}
-
-void dk2test::destroySDL() {
-  SDL_DestroyWindow(mWindow);
-  SDL_Quit();
-}
-
-void dk2test::destroyOVR() {
-  ovrHmd_Destroy(mHmd);
-  mHmd = NULL;
-
-  ovr_Shutdown();
-}
-
-void* dk2test::getNativeWindowHandle() {
+void* dk2test::GetNativeWindowHandle() {
   SDL_SysWMinfo window_info;
   SDL_VERSION(&window_info.version);
   SDL_GetWindowWMInfo(mWindow, &window_info);
@@ -196,7 +219,7 @@ void* dk2test::getNativeWindowHandle() {
 #endif
 }
 
-void dk2test::createScene() {
+void dk2test::CreateScene() {
   mSceneManager = mRoot->createSceneManager(Ogre::ST_GENERIC);
   mRootNode = mSceneManager->getRootSceneNode();
 
@@ -218,22 +241,6 @@ void dk2test::createScene() {
   head_node->attachObject(right_eye);
   right_eye->setNearClipDistance(0.1f);
   mEyeCameras.push_back(right_eye);
-
-  mEyeRenderTarget = mEyeRenderTexture->getBuffer()->getRenderTarget();
-  int z_order;
-  float left, top, width, height;
-
-  z_order = 0;
-  left = 0.0f; top = 0.0;
-  width = 0.5f; height = 1.0f;
-  mEyeRenderTarget->addViewport(left_eye, z_order, left, top, width, height);
-
-  z_order = 1;
-  left = 0.5f; top = 0.0;
-  width = 0.5f; height = 1.0f;
-  mEyeRenderTarget->addViewport(right_eye, z_order, left, top, width, height);
-
-  mEyeRenderTarget->setAutoUpdated(false);
 
   body_node->setPosition(Vector3(0, 0, 50));
   body_node->lookAt(Vector3(0, 0, 0), Node::TS_WORLD);
@@ -264,6 +271,7 @@ void dk2test::createScene() {
   node->setPosition(Vector3(-20, 0, 0));
 }
 
+#if 0
 void dk2test::createRenderTextureViewer() {
   mDummySceneManager = mRoot->createSceneManager(ST_GENERIC);
   mDummySceneManager->setSkyBox(true, "Examples/EveningSkyBox");
@@ -289,6 +297,7 @@ void dk2test::createRenderTextureViewer() {
 
   auto viewport = mRenderWindow->addViewport(dummy_camera);
 }
+#endif
 
 void dk2test::loop() {
   SDL_Event e;
@@ -309,6 +318,7 @@ void dk2test::loop() {
       entity->getAnimationState("Dance")->addTime((float)us);
     }
 
+    mRoot->renderOneFrame();
     this->renderOculusFrame();
   }
 }
@@ -331,50 +341,67 @@ void dk2test::renderOculusFrame() {
 
   Ogre::Matrix4 m;
 
-  for (int eye_index = 0; eye_index < ovrEye_Count; ++eye_index) {
-    ovrEyeType eye = mHmd->EyeRenderOrder[eye_index];
-    head_pose[eye] = ovrHmd_GetEyePose(mHmd, eye);
+  for (int counter = 0; counter < ovrEye_Count; ++counter) {
+    // in the DK2 right eye is actually first!
+    ovrEyeType eye_index = mHmd->EyeRenderOrder[counter];
+    auto& eye = mEyes[eye_index];
+    head_pose[eye_index] = ovrHmd_GetEyePose(mHmd, eye_index);
 
-    Quatf orientation = Quatf(head_pose[eye].Orientation);
-    Matrix4f proj = ovrMatrix4f_Projection(
-        mEyeRenderDesc[eye].Fov, 0.01f, 10000.0f, true);
-
+    Quatf orientation = Quatf(head_pose[eye_index].Orientation);
+    Matrix4f proj = ovrMatrix4f_Projection(eye.RenderDesc.Fov, 0.01f, 10000.0f, true);
 
     auto camera = mEyeCameras[eye_index];
     auto pos = camera->getDerivedPosition();
     Vector3f world_eye_pos(pos.x, pos.y, pos.z);
     Matrix4f view = (Matrix4f(orientation.Inverted()) * Matrix4f::Translation(-world_eye_pos));
-    view = Matrix4f::Translation(mEyeRenderDesc[eye].ViewAdjust) * view;
+    view = Matrix4f::Translation(eye.RenderDesc.ViewAdjust) * view;
 
     camera->setCustomViewMatrix(true, ToOgreMatrix(view, m));
+    camera->setCustomProjectionMatrix(true, ToOgreMatrix(proj, m));
 
-    ToOgreMatrix(proj, m);
-    camera->setCustomProjectionMatrix(true, m);
+#if 0
+    char buf[1024];
+    if (eye_index == ovrEye_Left) {
+      OutputDebugStringA("L: ");
+    } else if (eye_index == ovrEye_Right) {
+      OutputDebugStringA("R: ");
+    }
+    view.ToString(buf, 1024);
+    OutputDebugStringA(buf);
+    OutputDebugStringA("\n");
+#endif
+
+    eye.RenderTarget->update();
   }
-
-  mRoot->renderOneFrame();
-  mEyeRenderTarget->update();
 
   ovrGLTexture gl_eye_textures[2];
   ovrTexture eye_textures[2];
   for (int i = 0; i < ovrEye_Count; ++i ) {
+    auto& eye = mEyes[i];
+
     gl_eye_textures[i].OGL.Header.API = ovrRenderAPI_OpenGL;
-    gl_eye_textures[i].OGL.Header.TextureSize = mRenderTargetSize;
-    gl_eye_textures[i].OGL.TexId = mEyeRenderTargetTextureId;
+    gl_eye_textures[i].OGL.Header.TextureSize = eye.TextureSize;
+    gl_eye_textures[i].OGL.TexId = eye.TextureId;
 
     auto& rect = gl_eye_textures[i].OGL.Header.RenderViewport;
-    rect.Size = mRenderTargetSize;
-    rect.Size.w /= 2;
+    rect.Size = eye.TextureSize;
+    rect.Pos.x = 0;
     rect.Pos.y = 0;
-
-    if (i == ovrEye_Left) {
-      rect.Pos.x = 0;
-    } else if (i == ovrEye_Right) {
-      rect.Pos.x = (mRenderTargetSize.w + 1) / 2;
-    }
-
     eye_textures[i] = gl_eye_textures[i].Texture;
   }
 
   ovrHmd_EndFrame(mHmd, head_pose, eye_textures);
+}
+
+void dk2test::AttachSceneToRenderTargets() {
+  for (int i = 0; i < ovrEye_Count; ++i) {
+    auto& eye = mEyes[i];
+    auto camera = mEyeCameras[i];
+    auto render_target = eye.Texture->getBuffer()->getRenderTarget();
+    eye.RenderTarget = render_target;
+    static const int z_order = 0;
+    static const float left = 0.0f, top = 0.0f, width = 1.0f, height = 1.0f;
+    render_target->addViewport(camera, z_order, left, top, width, height);
+    render_target->setAutoUpdated(false);
+  }
 }

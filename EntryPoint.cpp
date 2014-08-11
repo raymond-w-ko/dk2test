@@ -12,7 +12,7 @@ void error(std::string message) {
 }
 
 void notice(std::string message) {
-  SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION, "Fatal Error!", message.c_str(), NULL);
+  SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION, "Notice", message.c_str(), NULL);
 }
 
 
@@ -21,6 +21,11 @@ int main(int argc, char* argv[]) {
   boost::filesystem::current_path(path / "..");
 
   dk2test instance;
+  instance.ConfigureRenderingQuality(1.0f, 1.0f);
+  instance.CreateScene();
+  instance.AttachSceneToRenderTargets();
+
   instance.loop();
+
   return 0;
 }
