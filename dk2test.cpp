@@ -147,8 +147,6 @@ void dk2test::ConfigureRenderingQuality(float render_quality, float fov_quality)
   render_quality = clamp(render_quality, 0.1f, 1.0f);
   fov_quality = clamp(fov_quality, 0.1f, 1.0f);
 
-  static const int multisample = 0;
-
   for (int i = 0; i < ovrEye_Count; ++i) {
     auto& eye = mEyes[i];
     eye.RenderQuality = render_quality;
@@ -172,6 +170,7 @@ void dk2test::ConfigureRenderingQuality(float render_quality, float fov_quality)
 
     static const int num_mipmaps = 0;
     static const bool hw_gamma_correction = false;
+    static const int multisample = 4;
     eye.Texture = TextureManager::getSingleton().createManual(
         "EyeRenderTarget" + boost::lexical_cast<std::string>(i),
         ResourceGroupManager::DEFAULT_RESOURCE_GROUP_NAME,
@@ -193,7 +192,8 @@ void dk2test::ConfigureRenderingQuality(float render_quality, float fov_quality)
   ovrGLConfig config;
   config.OGL.Header.API = ovrRenderAPI_OpenGL;
   config.OGL.Header.RTSize = OVR::Sizei(mHmd->Resolution.w, mHmd->Resolution.h);
-  config.OGL.Header.Multisample = multisample;
+  // this does not appear to be used as of SDK 0.4.1?
+  config.OGL.Header.Multisample = 0;
   config.OGL.Window = (decltype(config.OGL.Window)) this->GetNativeWindowHandle();
   config.OGL.DC = NULL;
 
