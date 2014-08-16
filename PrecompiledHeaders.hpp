@@ -24,6 +24,7 @@
 
 #include <OVR.h>
 #include <../Src/OVR_CAPI_GL.h>
+#include <../Src/CAPI/CAPI_HSWDisplay.h>
 
 #include <Ogre.h>
 
@@ -31,3 +32,9 @@
 
 void notice(std::string message);
 void error(std::string message);
+
+template <typename T>
+T clamp(const T& n, const T& lower, const T& upper) {
+  return std::max(lower, std::min(n, upper));
+}
+

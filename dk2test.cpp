@@ -75,6 +75,8 @@ void dk2test::initSDL() {
   if (!mWindow) {
     error("Could not create SDL2 window!");
   }
+
+  ovrHmd_AttachToWindow(mHmd, this->GetNativeWindowHandle(), NULL, NULL);
 }
 
 void dk2test::initOgre() {
@@ -116,9 +118,6 @@ void dk2test::initOgre() {
   mRenderWindow->setAutoUpdated(false);
   mRenderWindow->setActive(true);
 
-  //rendersystems[0]->clearFrameBuffer(FBT_COLOUR, ColourValue::Black);
-  //mRoot->renderOneFrame(0.0f);
-
   // Load resource paths from config file
   ConfigFile config_file;
   config_file.load("resources.cfg");
@@ -143,6 +142,9 @@ void dk2test::initOgre() {
 }
 
 void dk2test::ConfigureRenderingQuality(float render_quality, float fov_quality) {
+  render_quality = clamp(render_quality, 0.1f, 1.0f);
+  fov_quality = clamp(fov_quality, 0.1f, 1.0f);
+
   static const int multisample = 0;
 
   for (int i = 0; i < ovrEye_Count; ++i) {
@@ -207,6 +209,8 @@ void dk2test::ConfigureRenderingQuality(float render_quality, float fov_quality)
       fovs, render_descs);
   mEyes[0].RenderDesc = render_descs[0];
   mEyes[1].RenderDesc = render_descs[1];
+
+  ovrhmd_EnableHSWDisplaySDKRender(mHmd, false);
 }
 
 void* dk2test::GetNativeWindowHandle() {
@@ -329,19 +333,52 @@ void dk2test::loop() {
   SDL_Event e;
   Timer* timer = new Timer;
 
+  float render_quality = 1.0f;
+  float fov = 1.0f;
+  bool render_quality_dirty = false;
+
   while (true) {
     while (SDL_PollEvent(&e)) {
       switch (e.type) {
         case SDL_QUIT:
           return;
         case SDL_KEYDOWN: {
-          if (e.key.repeat)
-            break;
-          if (e.key.keysym.scancode == SDL_SCANCODE_SPACE) {
-            ovrHmd_RecenterPose(mHmd);
+          switch (e.key.keysym.scancode) {
+            case SDL_SCANCODE_SPACE: {
+              ovrHmd_RecenterPose(mHmd);
+              //unsigned char rgbColorOut[3];
+              //ovrHmd_ProcessLatencyTest(mHmd, rgbColorOut);
+              break;
+            }
+            case SDL_SCANCODE_W: {
+              render_quality += 0.1f;
+              render_quality_dirty = true;
+              break;
+            }
+            case SDL_SCANCODE_S: {
+              render_quality -= 0.1f;
+              render_quality_dirty = true;
+              break;
+            }
+            case SDL_SCANCODE_A: {
+              fov -= 0.1f;
+              render_quality_dirty = true;
+              break;
+            }
+            case SDL_SCANCODE_D: {
+              fov += 0.1f;
+              render_quality_dirty = true;
+              break;
+            }
           }
           break;
         }
+      }
+
+      if (render_quality_dirty) {
+        render_quality_dirty = false;
+        this->ConfigureRenderingQuality(render_quality, fov);
+        this->AttachSceneToRenderTargets();
       }
     }
 
@@ -416,4 +453,10 @@ void dk2test::renderOculusFrame() {
   }
 
   ovrHmd_EndFrame(mHmd, head_pose, eye_textures);
+
+  //std::string test_result(ovrHmd_GetLatencyTestResult(mHmd));
+  //if (test_result.size() > 0) {
+    //OutputDebugStringA(test_result.c_str());
+    //OutputDebugStringA("\n");
+  //}
 }
