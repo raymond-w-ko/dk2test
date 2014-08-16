@@ -76,7 +76,9 @@ void dk2test::initSDL() {
     error("Could not create SDL2 window!");
   }
 
-  ovrHmd_AttachToWindow(mHmd, this->GetNativeWindowHandle(), NULL, NULL);
+  bool need_attach = !(ovrHmd_GetEnabledCaps(mHmd) & ovrHmdCap_ExtendDesktop);
+  if (need_attach)
+    ovrHmd_AttachToWindow(mHmd, this->GetNativeWindowHandle(), NULL, NULL);
 }
 
 void dk2test::initOgre() {
