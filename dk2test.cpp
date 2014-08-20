@@ -27,11 +27,12 @@ dk2test::~dk2test() {
 }
 
 void dk2test::initOVR() {
-  ovr_InitializeRenderingShim();
-
   if (!ovr_Initialize()) {
     error("failed to initialize OVR");
   }
+
+  // note this can return 0 detected HMDs, but we don't want to fail
+  ovrHmd_Detect();
 
   mHmd = ovrHmd_Create(0);
   if (!mHmd) {
@@ -43,6 +44,12 @@ void dk2test::initOVR() {
   }
 
   // TODO: why would you not want these?
+  static const unsigned int hmd_caps =
+      ovrHmdCap_LowPersistence |
+      ovrHmdCap_DynamicPrediction;
+  ovrHmd_SetEnabledCaps(mHmd, hmd_caps);
+
+  // TODO: why would you not want these?
   static const unsigned int supported_tracking_caps = 
       ovrTrackingCap_Orientation |
       ovrTrackingCap_MagYawCorrection |
@@ -51,12 +58,6 @@ void dk2test::initOVR() {
   if (!ovrHmd_ConfigureTracking(mHmd, supported_tracking_caps, required_tracking_caps)) {
     error("failed to configure tracking capabilities");
   }
-
-  // TODO: why would you not want these?
-  static const unsigned int hmd_caps =
-      ovrHmdCap_LowPersistence |
-      ovrHmdCap_DynamicPrediction;
-  ovrHmd_SetEnabledCaps(mHmd, hmd_caps);
 }
 
 void dk2test::initSDL() {
