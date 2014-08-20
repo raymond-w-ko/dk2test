@@ -107,7 +107,7 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>C:\opt\SDL\include;C:\opt\OculusSDK\LibOVR\Include;C:\opt\boost;C:\opt\ogre\build\sdk\include\OGRE;C:\opt\ogre\build\sdk\include\OGRE\RenderSystems\GL;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Program Files (x86)\Microsoft DirectX SDK (June 2010)\Include;C:\opt\SDL\include;C:\opt\OculusSDK\LibOVR\Include;C:\opt\boost;C:\opt\ogre\build\sdk\include\OGRE;C:\opt\ogre\build\sdk\include\OGRE\RenderSystems\GL;C:\opt\ogre\build\sdk\include\OGRE\RenderSystems\Direct3D9;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PrecompiledHeaderFile>PrecompiledHeaders.hpp</PrecompiledHeaderFile>
       <AdditionalOptions>/Zm256 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
@@ -147,7 +147,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>C:\opt\SDL\include;C:\opt\OculusSDK\LibOVR\Include;C:\opt\boost;C:\opt\ogre\build\sdk\include\OGRE;C:\opt\ogre\build\sdk\include\OGRE\RenderSystems\GL;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Program Files (x86)\Microsoft DirectX SDK (June 2010)\Include;C:\opt\SDL\include;C:\opt\OculusSDK\LibOVR\Include;C:\opt\boost;C:\opt\ogre\build\sdk\include\OGRE;C:\opt\ogre\build\sdk\include\OGRE\RenderSystems\GL;C:\opt\ogre\build\sdk\include\OGRE\RenderSystems\Direct3D9;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PrecompiledHeaderFile>PrecompiledHeaders.hpp</PrecompiledHeaderFile>
       <AdditionalOptions>/Zm256 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>

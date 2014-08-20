@@ -30,9 +30,6 @@
 
 // custom
 
-#define USING_OPENGL
-//#define USING_DIRECT3D_9
-
 void notice(std::string message);
 void error(std::string message);
 

@@ -42,6 +42,7 @@ class dk2test {
   void initOVR();
   void initSDL();
   void initOgre();
+  void loadAssets();
 
   void createRenderTextureViewer();
 

@@ -17,6 +17,8 @@ void notice(std::string message) {
 
 
 int main(int argc, char* argv[]) {
+  std::vector<std::string> args(argv, argv + argc);
+
   auto path = boost::filesystem::current_path();
   boost::filesystem::current_path(path / "..");
 

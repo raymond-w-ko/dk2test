@@ -9,6 +9,7 @@ dk2test::dk2test()
   this->initOVR();
   this->initSDL();
   this->initOgre();
+  this->loadAssets();
 }
 
 dk2test::~dk2test() {
@@ -26,6 +27,8 @@ dk2test::~dk2test() {
 }
 
 void dk2test::initOVR() {
+  ovr_InitializeRenderingShim();
+
   if (!ovr_Initialize()) {
     error("failed to initialize OVR");
   }
@@ -39,7 +42,7 @@ void dk2test::initOVR() {
     error("failed to create real or debug HMD");
   }
 
-  // TODO: do we want these to be configurable?
+  // TODO: why would you not want these?
   static const unsigned int supported_tracking_caps = 
       ovrTrackingCap_Orientation |
       ovrTrackingCap_MagYawCorrection |
@@ -49,9 +52,8 @@ void dk2test::initOVR() {
     error("failed to configure tracking capabilities");
   }
 
-  // TODO: do we want these to be configurable?
+  // TODO: why would you not want these?
   static const unsigned int hmd_caps =
-      //ovrHmdCap_NoVSync |
       ovrHmdCap_LowPersistence |
       ovrHmdCap_DynamicPrediction;
   ovrHmd_SetEnabledCaps(mHmd, hmd_caps);
@@ -76,6 +78,7 @@ void dk2test::initSDL() {
     error("Could not create SDL2 window!");
   }
 
+  // TODO: this always seems to be true in SDK 0.4.1
   bool need_attach = !(ovrHmd_GetEnabledCaps(mHmd) & ovrHmdCap_ExtendDesktop);
   if (need_attach)
     ovrHmd_AttachToWindow(mHmd, this->GetNativeWindowHandle(), NULL, NULL);
@@ -116,10 +119,13 @@ void dk2test::initOgre() {
       this->mHmd->Resolution.w, this->mHmd->Resolution.h,
       false,
       &params);
-  mRenderWindow->setVisible(true);
-  mRenderWindow->setAutoUpdated(false);
   mRenderWindow->setActive(true);
+  mRenderWindow->setVisible(true);
+  // we will manually render to eye textures later on, and the Oculus SDK will swap buffers
+  mRenderWindow->setAutoUpdated(false);
+}
 
+void dk2test::loadAssets() {
   // Load resource paths from config file
   ConfigFile config_file;
   config_file.load("resources.cfg");
