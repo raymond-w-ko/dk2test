@@ -27,6 +27,8 @@ dk2test::~dk2test() {
 }
 
 void dk2test::initOVR() {
+  ovr_InitializeRenderingShim();
+
   if (!ovr_Initialize()) {
     error("failed to initialize OVR");
   }
