@@ -200,7 +200,7 @@ void dk2test::ConfigureRenderingQuality(float render_quality, float fov_quality)
 
   ovrGLConfig config;
   config.OGL.Header.API = ovrRenderAPI_OpenGL;
-  config.OGL.Header.RTSize = OVR::Sizei(mHmd->Resolution.w, mHmd->Resolution.h);
+  config.OGL.Header.BackBufferSize = OVR::Sizei(mHmd->Resolution.w, mHmd->Resolution.h);
   // this does not appear to be used as of SDK 0.4.1?
   config.OGL.Header.Multisample = 0;
   config.OGL.Window = (decltype(config.OGL.Window)) this->GetNativeWindowHandle();
@@ -427,7 +427,7 @@ void dk2test::renderOculusFrame() {
     // in the DK2 right eye is actually first!
     ovrEyeType eye_index = mHmd->EyeRenderOrder[counter];
     auto& eye = mEyes[eye_index];
-    head_pose[eye_index] = ovrHmd_GetEyePose(mHmd, eye_index);
+    head_pose[eye_index] = ovrHmd_GetHmdPosePerEye(mHmd, eye_index);
 
     Quatf orientation = Quatf(head_pose[eye_index].Orientation);
     Matrix4f proj = ovrMatrix4f_Projection(eye.RenderDesc.Fov, 0.01f, 10000.0f, true);
@@ -436,7 +436,7 @@ void dk2test::renderOculusFrame() {
     auto pos = camera->getDerivedPosition();
     Vector3f world_eye_pos(pos.x, pos.y, pos.z);
     Matrix4f view = (Matrix4f(orientation.Inverted()) * Matrix4f::Translation(-world_eye_pos));
-    view = Matrix4f::Translation(eye.RenderDesc.ViewAdjust) * view;
+    view = Matrix4f::Translation(eye.RenderDesc.HmdToEyeViewOffset) * view;
 
     camera->setCustomViewMatrix(true, ToOgreMatrix(view, m));
     camera->setCustomProjectionMatrix(true, ToOgreMatrix(proj, m));
