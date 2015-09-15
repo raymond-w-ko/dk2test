@@ -22,11 +22,32 @@
 #include <SDL.h>
 #include <SDL_syswm.h>
 
-#include <OVR.h>
-#include <../Src/OVR_CAPI_GL.h>
-#include <../Src/CAPI/CAPI_HSWDisplay.h>
+#include <OVR_Version.h>
+#include <OVR_CAPI.h>
+#include <OVR_CAPI_GL.h>
+#include <Extras/OVR_CAPI_Util.h>
 
 #include <Ogre.h>
+#include <Plugins/OctreeSceneManager/OgreOctreePlugin.h>
+#include <Plugins/ParticleFX/OgreParticleFXPlugin.h>
+#include <OgreDepthBuffer.h>
+#include <GL/glew.h>
+
+// include all includes in OgreGLTexture.h before forcing private to be public
+// we don't want to affect other headers
+#include <OgreGLPrerequisites.h>
+#include <OgrePlatform.h>
+#include <OgreRenderTexture.h>
+#include <OgreTexture.h>
+#include <OgreGLSupport.h>
+#include <OgreHardwarePixelBuffer.h>
+#include <OgreGLStateCacheManager.h>
+#include <OgreGLPlugin.h>
+
+// HACK
+#define private public
+#include <OgreGLTexture.h>
+#undef private
 
 // custom
 

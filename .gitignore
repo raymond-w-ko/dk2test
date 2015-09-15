@@ -7,6 +7,9 @@
 *.opensdf
 *.suo
 
-/Projects/Win32/VS2013/ipch/
+ipch
+
 /Projects/Win32/VS2013/Win32/
 /Projects/Win32/VS2013/x64/
+/Projects/Win32/VS2015/Win32/
+/Projects/Win32/VS2015/x64/

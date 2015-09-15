@@ -4,87 +4,95 @@
 using namespace Ogre;
 
 dk2test::dk2test() 
-    : mUsingDebugHmd(false),
-      mHmd(NULL) {
+    : mHmd(nullptr)
+{
+  memset(&mGraphicsLuid, 0, sizeof(mGraphicsLuid));
+  memset(&mHmdDesc, 0, sizeof(mHmdDesc));
+  
+  mEyes[ovrEye_Left].SwapTextureSet = nullptr;
+  mEyes[ovrEye_Right].SwapTextureSet = nullptr;
+  
   this->initOVR();
   this->initSDL();
   this->initOgre();
   this->loadAssets();
+  this->createRenderTextureViewer();
 }
 
 dk2test::~dk2test() {
-  mEyes[0].Texture.setNull();
-  mEyes[1].Texture.setNull();
+  for (int i = 0; i < 2; ++i) {
+    mEyes[0].Textures[i].Texture.setNull();
+    mEyes[1].Textures[i].Texture.setNull();
+  }
   delete mRoot;
   mRoot = NULL;
 
   SDL_DestroyWindow(mWindow);
   SDL_Quit();
 
-  ovrHmd_Destroy(mHmd);
+  ovr_Destroy(mHmd);
   mHmd = NULL;
   ovr_Shutdown();
 }
 
 void dk2test::initOVR() {
-  ovr_InitializeRenderingShim();
-
-  if (!ovr_Initialize()) {
+  ovrInitParams init_params;
+  
+  init_params.Flags = 0;
+  /* init_params.Flags |= ovrInit_Debug; */
+  /* init_params.Flags |= ovrInit_ServerOptional; */
+  /* init_params.Flags |= ovrInit_RequestVersion; */
+  init_params.RequestedMinorVersion = 0;
+  init_params.LogCallback = dk2test::onOculusSDKLogMessage;
+  init_params.UserData = (decltype(init_params.UserData))this;
+  // 0 is default timeout
+  init_params.ConnectionTimeoutMS = 0;
+  if (OVR_FAILURE(ovr_Initialize(&init_params))) {
     error("failed to initialize OVR");
   }
 
-  // note this can return 0 detected HMDs, but we don't want to fail
-  ovrHmd_Detect();
-
-  mHmd = ovrHmd_Create(0);
-  if (!mHmd) {
-    mHmd = ovrHmd_CreateDebug(ovrHmd_DK2);
-    mUsingDebugHmd = true;
-  }
-  if (!mHmd) {
+  if (OVR_FAILURE(ovr_Create(&mHmd, &mGraphicsLuid))) {
     error("failed to create real or debug HMD");
   }
-
-  // TODO: why would you not want these?
-  static const unsigned int hmd_caps =
-      ovrHmdCap_LowPersistence |
-      ovrHmdCap_DynamicPrediction;
-  ovrHmd_SetEnabledCaps(mHmd, hmd_caps);
+  mHmdDesc = ovr_GetHmdDesc(mHmd);
 
   // TODO: why would you not want these?
   static const unsigned int supported_tracking_caps = 
       ovrTrackingCap_Orientation |
       ovrTrackingCap_MagYawCorrection |
-      ovrTrackingCap_Position;
+      ovrTrackingCap_Position |
+      ovrTrackingCap_Idle |
+      0;
   static const unsigned int required_tracking_caps = 0;
-  if (!ovrHmd_ConfigureTracking(mHmd, supported_tracking_caps, required_tracking_caps)) {
+  if (OVR_FAILURE(ovr_ConfigureTracking(mHmd, supported_tracking_caps, required_tracking_caps))) {
     error("failed to configure tracking capabilities");
   }
+}
+
+void dk2test::onOculusSDKLogMessage(uintptr_t userData, int level, const char* message) {
+  ((dk2test*)userData)->onOculusSDKLogMessage(level, message);
+}
+
+void dk2test::onOculusSDKLogMessage(int level, const char* message) {
+  /* auto& log_man = LogManager::getSingleton(); */
+  /* log_man.getDefaultLog()->logMessage(message); */
+  OutputDebugStringA(message);
 }
 
 void dk2test::initSDL() {
   SDL_Init(SDL_INIT_VIDEO);
 
-  static const unsigned int flags = SDL_WINDOW_SHOWN | SDL_WINDOW_BORDERLESS;
+  static const unsigned int flags = SDL_WINDOW_SHOWN;
   int x = SDL_WINDOWPOS_CENTERED;
   int y = SDL_WINDOWPOS_CENTERED;
-  if (!mUsingDebugHmd) {
-    x = mHmd->WindowsPos.x;
-    y = mHmd->WindowsPos.y;
-  }
   mWindow = SDL_CreateWindow(
       "dk2test",
       x, y,
-      this->mHmd->Resolution.w, this->mHmd->Resolution.h,
+      mHmdDesc.Resolution.w / 2, mHmdDesc.Resolution.h / 2,
       flags);
   if (!mWindow) {
     error("Could not create SDL2 window!");
   }
-
-  // TODO: this always seems to be true in SDK 0.4.1
-  bool need_attach = !(ovrHmd_GetEnabledCaps(mHmd) & ovrHmdCap_ExtendDesktop);
-  if (need_attach)
-    ovrHmd_AttachToWindow(mHmd, this->GetNativeWindowHandle(), NULL, NULL);
 }
 
 void dk2test::initOgre() {
@@ -95,6 +103,7 @@ void dk2test::initOgre() {
   mRoot = new Root(plugin_filename, config_filename, log_filename);
 
   // load dynamic libraries
+  /*
   std::vector<std::string> dlls = {
     "RenderSystem_GL",
     "Plugin_OctreeSceneManager",
@@ -107,24 +116,30 @@ void dk2test::initOgre() {
 #endif
     mRoot->loadPlugin(dll);
   }
+  */
+  mRoot->installPlugin(new GLPlugin());
+  mRoot->installPlugin(new OctreePlugin());
+  mRoot->installPlugin(new ParticleFXPlugin());
 
   // create renderer
   auto rendersystems = mRoot->getAvailableRenderers();
-  mRoot->setRenderSystem(rendersystems[0]);
+  mGlRenderSystem = static_cast<GLRenderSystem*>(rendersystems[0]);
+  mGlRenderSystem->setFixedPipelineEnabled(false);
+  mRoot->setRenderSystem(mGlRenderSystem);
 
   mRoot->initialise(false);
 
   NameValuePairList params;
+  params["vsync"] = "vsync";
   params["externalWindowHandle"] = StringConverter::toString((size_t)GetNativeWindowHandle());
 
   mRenderWindow = mRoot->createRenderWindow(
       "OGRE Render Window",
-      this->mHmd->Resolution.w, this->mHmd->Resolution.h,
+      mHmdDesc.Resolution.w, mHmdDesc.Resolution.h,
       false,
       &params);
   mRenderWindow->setActive(true);
   mRenderWindow->setVisible(true);
-  // we will manually render to eye textures later on, and the Oculus SDK will swap buffers
   mRenderWindow->setAutoUpdated(false);
 }
 
@@ -152,76 +167,150 @@ void dk2test::loadAssets() {
   ResourceGroupManager::getSingleton().initialiseAllResourceGroups();
 }
 
-void dk2test::ConfigureRenderingQuality(float render_quality, float fov_quality) {
-  render_quality = clamp(render_quality, 0.1f, 1.0f);
-  fov_quality = clamp(fov_quality, 0.1f, 1.0f);
+struct GLTextureHacker : public GLTexture {
+  void _freeInternalResourcesImpl() {
+    this->freeInternalResourcesImpl();
+  }
+  void __createSurfaceList() {
+    this->_createSurfaceList();
+  }
+};
 
+static void ShimInOculusTexture(Ogre::Texture* _ogre_texture,
+                                ovrTexture* _ovr_texture) {
+  const unsigned char * gl_version = glGetString(GL_VERSION);
+  int error;
+
+  auto ogre_texture = static_cast<GLTextureHacker*>(_ogre_texture);
+  ogre_texture->_freeInternalResourcesImpl();
+  glDeleteTextures(1, &ogre_texture->mTextureID);
+
+  ovrGLTexture* ovr_texture = reinterpret_cast<ovrGLTexture*>(_ovr_texture);
+  auto texture_id = ovr_texture->OGL.TexId;
+  ogre_texture->mTextureID = texture_id;
+  auto gl_texture_target = ogre_texture->getGLTextureTarget();
+  auto& gl_support = ogre_texture->mGLSupport;
+  auto state_man = gl_support.getStateCacheManager();
+  state_man->bindGLTexture(gl_texture_target, texture_id);
+  error = glGetError();
+  // OculusRoomTiny only uses 1 level of mipmap, does not touch this
+  /* static const int num_mipmaps = 0; */
+  /* state_man->setTexParameteri( */
+  /*     gl_texture_target, GL_TEXTURE_MAX_LEVEL, num_mipmaps); */
+  /* error = glGetError(); */
+  // copied from OculusRoomTiny demo
+  state_man->setTexParameteri(
+      gl_texture_target, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  error = glGetError();
+  state_man->setTexParameteri(
+      gl_texture_target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  error = glGetError();
+  state_man->setTexParameteri(
+      gl_texture_target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  error = glGetError();
+  state_man->setTexParameteri(
+      gl_texture_target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  error = glGetError();
+  // only for textures not displayed on HMD
+  /* glTexImage2D(GL_TEXTURE_2D, 0, GL_SRGB8_ALPHA8, */
+  /*              ogre_texture->getWidth(), ogre_texture->getHeight(), 0, */ 
+  /*              GL_RGBA, GL_UNSIGNED_BYTE, 0); */
+  /* error = glGetError(); */
+  ogre_texture->__createSurfaceList();
+}
+
+void dk2test::ConfigureRenderingQuality(float render_quality, float fov_quality) {
+  ovrResult ret;
+  render_quality = clamp(render_quality, 0.05f, 2.0f);
+  fov_quality = clamp(fov_quality, 0.05f, 1.0f);
+  
   for (int i = 0; i < ovrEye_Count; ++i) {
     auto& eye = mEyes[i];
+    ovrEyeType eye_type = (ovrEyeType)i;
     eye.RenderQuality = render_quality;
     eye.FovQuality = fov_quality;
 
     auto& fov = mEyes[i].Fov;
-    const auto& max_fov = mHmd->MaxEyeFov[i];
-    const auto& default_fov = mHmd->DefaultEyeFov[i];
+    const auto& max_fov = mHmdDesc.MaxEyeFov[i];
+    const auto& default_fov = mHmdDesc.DefaultEyeFov[i];
     fov.UpTan = std::min(eye.FovQuality * default_fov.UpTan, max_fov.UpTan);
-    fov.DownTan = std::min(eye.FovQuality * default_fov.DownTan, max_fov.DownTan);
-    fov.LeftTan = std::min(eye.FovQuality * default_fov.LeftTan, max_fov.LeftTan);
-    fov.RightTan = std::min(eye.FovQuality * default_fov.RightTan, max_fov.RightTan);
+    fov.DownTan = std::min(eye.FovQuality * default_fov.DownTan,
+                           max_fov.DownTan);
+    fov.LeftTan = std::min(eye.FovQuality * default_fov.LeftTan,
+                           max_fov.LeftTan);
+    fov.RightTan = std::min(eye.FovQuality * default_fov.RightTan,
+                            max_fov.RightTan);
 
-    eye.TextureSize = ovrHmd_GetFovTextureSize(mHmd, (ovrEyeType)i, fov, eye.RenderQuality);
-
-    if (eye.Texture.get()) {
-      std::string texture_name(eye.Texture->getName());
-      eye.Texture.setNull();
-      Ogre::TextureManager::getSingleton().remove(texture_name);
+    eye.TextureSize = ovr_GetFovTextureSize(mHmd, eye_type,
+                                            fov, eye.RenderQuality);
+    eye.RenderDesc = ovr_GetRenderDesc(mHmd, eye_type, eye.Fov);
+    
+    if (eye.SwapTextureSet) {
+      ovr_DestroySwapTextureSet(mHmd, eye.SwapTextureSet);
+      eye.SwapTextureSet = NULL;
     }
+    ret = ovr_CreateSwapTextureSetGL(
+        mHmd, GL_SRGB8_ALPHA8, eye.TextureSize.w, eye.TextureSize.h,
+        &eye.SwapTextureSet);
+    if (OVR_FAILURE(ret)) {
+      error("failed to create Oculus SDK texture set");
+    }
+    
+    for (int texture_index = 0;
+         texture_index < eye.SwapTextureSet->TextureCount;
+         ++texture_index) {
+      auto& slot = eye.Textures[texture_index];
+      // set the OGRE texture's gut to OpenGL invalid 0 texture so we don't do
+      // a double free.
+      if (slot.Texture.get()) {
+        auto texture = static_cast<Ogre::GLTexture*>(slot.Texture.get());
+        // HACK BEGIN
+        texture->mSurfaceList.clear();
+        texture->mGLSupport.getStateCacheManager()->invalidateStateForTexture(
+            texture->mTextureID);
+        texture->mTextureID = 0;
+        // HACK END
+        std::string texture_name(slot.Texture->getName());
+        slot.Texture.setNull();
+        Ogre::TextureManager::getSingleton().remove(texture_name);
+      }
 
-    static const int num_mipmaps = 0;
-    static const bool hw_gamma_correction = false;
-    static const int multisample = 4;
-    eye.Texture = TextureManager::getSingleton().createManual(
-        "EyeRenderTarget" + boost::lexical_cast<std::string>(i),
-        ResourceGroupManager::DEFAULT_RESOURCE_GROUP_NAME,
-        TEX_TYPE_2D,
-        eye.TextureSize.w, eye.TextureSize.h,
-        num_mipmaps,
-        PF_R8G8B8,
-        TU_RENDERTARGET,
-        NULL,
-        hw_gamma_correction,
-        multisample);
-    eye.Texture->getCustomAttribute("GLID", &eye.TextureId);
-
-    // might have changed due to hardware limitations
-    eye.TextureSize.w = eye.Texture->getWidth();
-    eye.TextureSize.h = eye.Texture->getHeight();
+      static const int num_mipmaps = 0;
+      // MUST BE 0, or mysterious NULL pointer exception, also implied on
+      // OculusRoomTiny demo
+      static const int multisample = 0;
+      // must be true for OGRE to create GL_SRGB8_ALPHA8
+      // source: if (hwGamma) in OgreGLPixelFormat.cpp
+      static const bool hw_gamma_correction = true;
+      // this also must be set to this format for OGRE to create GL_SRGB8_ALPHA8
+      static const Ogre::PixelFormat format = Ogre::PF_B8G8R8A8;
+      std::string name =
+          "EyeRenderTarget"
+          + boost::lexical_cast<std::string>(i)
+          + "SwapTexture"
+          + boost::lexical_cast<std::string>(texture_index);
+      slot.Texture = TextureManager::getSingleton().createManual(
+          name,
+          ResourceGroupManager::DEFAULT_RESOURCE_GROUP_NAME,
+          TEX_TYPE_2D,
+          eye.TextureSize.w, eye.TextureSize.h,
+          num_mipmaps,
+          format,
+          TU_RENDERTARGET,
+          NULL,
+          hw_gamma_correction,
+          multisample);
+      
+      ShimInOculusTexture(slot.Texture.get(),
+                          &eye.SwapTextureSet->Textures[texture_index]);
+      slot.RenderTarget = slot.Texture->getBuffer()->getRenderTarget();
+      slot.RenderTarget->setAutoUpdated(false);
+    }
+    auto render_target =
+        eye.Textures[0].Texture->getBuffer()->getRenderTarget();
+    eye.DepthBuffer = std::unique_ptr<DepthBuffer>(
+        mGlRenderSystem->_createDepthBufferFor(render_target));
   }
-
-  ovrGLConfig config;
-  config.OGL.Header.API = ovrRenderAPI_OpenGL;
-  config.OGL.Header.BackBufferSize = OVR::Sizei(mHmd->Resolution.w, mHmd->Resolution.h);
-  // this does not appear to be used as of SDK 0.4.1?
-  config.OGL.Header.Multisample = 0;
-  config.OGL.Window = (decltype(config.OGL.Window)) this->GetNativeWindowHandle();
-  config.OGL.DC = NULL;
-
-  int distortion_caps =
-      ovrDistortionCap_Chromatic |
-      ovrDistortionCap_Vignette |
-      ovrDistortionCap_TimeWarp |
-      ovrDistortionCap_Overdrive |
-      // needed since OGRE does flipping to compensate for OpenGL texture coordinate system
-      ovrDistortionCap_FlipInput;
-  ovrFovPort fovs[2] = { mEyes[0].Fov, mEyes[1].Fov };
-  ovrEyeRenderDesc render_descs[2];
-  ovrHmd_ConfigureRendering(
-      mHmd, &config.Config, distortion_caps,
-      fovs, render_descs);
-  mEyes[0].RenderDesc = render_descs[0];
-  mEyes[1].RenderDesc = render_descs[1];
-
-  ovrhmd_EnableHSWDisplaySDKRender(mHmd, false);
 }
 
 void* dk2test::GetNativeWindowHandle() {
@@ -238,7 +327,7 @@ void dk2test::CreateScene() {
   mSceneManager = mRoot->createSceneManager(Ogre::ST_GENERIC);
   mRootNode = mSceneManager->getRootSceneNode();
 
-  mSceneManager->setSkyBox(true, "Examples/EveningSkyBox");
+  /* mSceneManager->setSkyBox(true, "Examples/EveningSkyBox"); */
   mSceneManager->setAmbientLight(ColourValue(0.333f, 0.333f, 0.333f));
 
   // for gross movement by WASD and control sticks
@@ -262,65 +351,73 @@ void dk2test::CreateScene() {
   body_node->lookAt(Vector3(0, 0, 0), Node::TS_WORLD);
 
   auto node = mRootNode->createChildSceneNode("ogrehead");
-  auto ogrehead = mSceneManager->createEntity("ogrehead.mesh");
-  node->attachObject(ogrehead);
-  node->setPosition(Vector3(0, 0, 0));
+  /* auto ogrehead = mSceneManager->createEntity("ogrehead.mesh"); */
+  /* node->attachObject(ogrehead); */
+  /* node->setPosition(Vector3(0, 0, 0)); */
   auto scale = 0.005f;
-  node->setScale(Vector3(scale, scale, scale));
-  node->lookAt(Vector3(0, 0, -1), Node::TS_WORLD);
+  /* node->setScale(Vector3(scale, scale, scale)); */
+  /* node->lookAt(Vector3(0, 0, -1), Node::TS_WORLD); */
 
   auto light = mSceneManager->createLight();
   node->attachObject(light);
   light->setType(Ogre::Light::LT_POINT);
   light->setPosition(Ogre::Vector3(0, 0, 1));
 
-  node = mRootNode->createChildSceneNode("sinbad");
-  auto sinbad = mSceneManager->createEntity("Sinbad.mesh");
-  auto anim_state = sinbad->getAnimationState("Dance");
-  mAnimatingStates.push_back(anim_state);
-  anim_state->setEnabled(true);
-  anim_state->setLoop(true);
-  node->attachObject(sinbad);
-  scale = 0.05f;
-  node->setScale(Vector3(scale, scale, scale));
-  node->lookAt(Vector3(0, 0, -1), Node::TS_WORLD);
-  node->setPosition(Vector3(-0.25f, 0, 0));
+  /* node = mRootNode->createChildSceneNode("sinbad"); */
+  /* auto sinbad = mSceneManager->createEntity("Sinbad.mesh"); */
+  /* auto anim_state = sinbad->getAnimationState("Dance"); */
+  /* mAnimatingStates.push_back(anim_state); */
+  /* anim_state->setEnabled(true); */
+  /* anim_state->setLoop(true); */
+  /* node->attachObject(sinbad); */
+  /* scale = 0.05f; */
+  /* node->setScale(Vector3(scale, scale, scale)); */
+  /* node->lookAt(Vector3(0, 0, -1), Node::TS_WORLD); */
+  /* node->setPosition(Vector3(-0.25f, 0, 0)); */
 
-  node = mRootNode->createChildSceneNode("jaiqua");
-  auto jaiqua = mSceneManager->createEntity("jaiqua.mesh");
-  anim_state = jaiqua->getAnimationState("Sneak");
-  mAnimatingStates.push_back(anim_state);
-  anim_state->setEnabled(true);
-  anim_state->setLoop(true);
-  node->attachObject(jaiqua);
-  scale = 0.0125f;
-  node->setScale(Vector3(scale, scale, scale));
-  node->lookAt(Vector3(0, 0, 1), Node::TS_WORLD);
-  node->setPosition(Vector3(0.25f, 0, -0.25f));
+  /* node = mRootNode->createChildSceneNode("jaiqua"); */
+  /* auto jaiqua = mSceneManager->createEntity("jaiqua.mesh"); */
+  /* anim_state = jaiqua->getAnimationState("Sneak"); */
+  /* mAnimatingStates.push_back(anim_state); */
+  /* anim_state->setEnabled(true); */
+  /* anim_state->setLoop(true); */
+  /* node->attachObject(jaiqua); */
+  /* scale = 0.0125f; */
+  /* node->setScale(Vector3(scale, scale, scale)); */
+  /* node->lookAt(Vector3(0, 0, 1), Node::TS_WORLD); */
+  /* node->setPosition(Vector3(0.25f, 0, -0.25f)); */
 }
 
 void dk2test::AttachSceneToRenderTargets() {
+#if 0
   for (int i = 0; i < ovrEye_Count; ++i) {
     auto& eye = mEyes[i];
     auto camera = mEyeCameras[i];
-    auto render_target = eye.Texture->getBuffer()->getRenderTarget();
-    eye.RenderTarget = render_target;
-    static const int z_order = 0;
-    static const float left = 0.0f, top = 0.0f, width = 1.0f, height = 1.0f;
-    render_target->addViewport(camera, z_order, left, top, width, height);
-    render_target->setAutoUpdated(false);
+    for (int texture_index = 0;
+         texture_index < eye.SwapTextureSet->TextureCount;
+         ++texture_index) {
+      auto& slot = eye.Textures[texture_index];
+      auto render_target = slot.Texture->getBuffer()->getRenderTarget();
+      slot.RenderTarget = render_target;
+      static const int z_order = 0;
+      static const float left = 0.0f, top = 0.0f, width = 1.0f, height = 1.0f;
+      render_target->addViewport(camera, z_order, left, top, width, height);
+      render_target->setAutoUpdated(false);
+    }
   }
+#endif
 }
 
-#if 0
 void dk2test::createRenderTextureViewer() {
+  return;
   mDummySceneManager = mRoot->createSceneManager(ST_GENERIC);
   mDummySceneManager->setSkyBox(true, "Examples/EveningSkyBox");
   auto root_node = mDummySceneManager->getRootSceneNode();
   auto node = root_node->createChildSceneNode("Background");
   auto dummy_camera = mDummySceneManager->createCamera("dummy0");
   node->attachObject(dummy_camera);
-
+  
+#if 0
   auto rect = new Rectangle2D(true);
   rect->setCorners(-1, 1, 1, -1);
 
@@ -335,10 +432,10 @@ void dk2test::createRenderTextureViewer() {
   rect->setBoundingBox(AxisAlignedBox::BOX_INFINITE);
 
   node->attachObject(rect);
+#endif
 
   auto viewport = mRenderWindow->addViewport(dummy_camera);
 }
-#endif
 
 void dk2test::loop() {
   SDL_Event e;
@@ -356,7 +453,7 @@ void dk2test::loop() {
         case SDL_KEYDOWN: {
           switch (e.key.keysym.scancode) {
             case SDL_SCANCODE_SPACE: {
-              ovrHmd_RecenterPose(mHmd);
+              ovr_RecenterPose(mHmd);
               //unsigned char rgbColorOut[3];
               //ovrHmd_ProcessLatencyTest(mHmd, rgbColorOut);
               break;
@@ -400,12 +497,15 @@ void dk2test::loop() {
       anim_state->addTime((float)us);
     }
 
+    // this updates animations
     mRoot->renderOneFrame();
     this->renderOculusFrame();
   }
 }
 
-static inline const Ogre::Matrix4& ToOgreMatrix(const OVR::Matrix4f& src, Ogre::Matrix4& dst) {
+static Ogre::Matrix4& ToOgreMatrix(
+    const ovrMatrix4f& src, Ogre::Matrix4& dst)
+{
   for (int i = 0; i < 4; ++i) {
     for (int j = 0; j < 4; ++j) {
       dst[i][j] = src.M[i][j];
@@ -416,54 +516,111 @@ static inline const Ogre::Matrix4& ToOgreMatrix(const OVR::Matrix4f& src, Ogre::
 }
 
 void dk2test::renderOculusFrame() {
-  using namespace OVR;
+  glGetString(GL_VERSION);
+  using namespace Ogre;
+  
+  // this is the primary 3D layer, later on we might want to lower the quality
+  // of this for performance and introduce other high quality layers, such as
+  // text.
+  ovrLayerEyeFov primary_layer;
+  primary_layer.Header.Type = ovrLayerType_EyeFov;
+  primary_layer.Header.Flags = 
+      /* ovrLayerFlag_HighQuality | */
+      /* ovrLayerFlag_TextureOriginAtBottomLeft | */
+      0;
+  
+  auto frame_timing = ovr_GetFrameTiming(mHmd, 0);
+  auto ts = ovr_GetTrackingState(mHmd, frame_timing.DisplayMidpointSeconds);
+  const auto& head_pose = ts.HeadPose.ThePose;
 
-  ovrFrameTiming hmd_frame_timing = ovrHmd_BeginFrame(mHmd, 0);
-  ovrPosef head_pose[2];
-
-  Ogre::Matrix4 m;
-
-  for (int counter = 0; counter < ovrEye_Count; ++counter) {
-    // in the DK2 right eye is actually first!
-    ovrEyeType eye_index = mHmd->EyeRenderOrder[counter];
-    auto& eye = mEyes[eye_index];
-    head_pose[eye_index] = ovrHmd_GetHmdPosePerEye(mHmd, eye_index);
-
-    Quatf orientation = Quatf(head_pose[eye_index].Orientation);
-    Matrix4f proj = ovrMatrix4f_Projection(eye.RenderDesc.Fov, 0.01f, 10000.0f, true);
-
-    auto camera = mEyeCameras[eye_index];
-    auto pos = camera->getDerivedPosition();
-    Vector3f world_eye_pos(pos.x, pos.y, pos.z);
-    Matrix4f view = (Matrix4f(orientation.Inverted()) * Matrix4f::Translation(-world_eye_pos));
-    view = Matrix4f::Translation(eye.RenderDesc.HmdToEyeViewOffset) * view;
-
-    camera->setCustomViewMatrix(true, ToOgreMatrix(view, m));
-    camera->setCustomProjectionMatrix(true, ToOgreMatrix(proj, m));
-
-    auto head_pos = head_pose[eye_index].Position;
-    mHeadSceneNode->setPosition(Ogre::Vector3(head_pos.x, head_pos.y, head_pos.z));
-
-    eye.RenderTarget->update();
+  ovrEyeRenderDesc eye_render_descs[2];
+  ovrVector3f hmd_to_eye_view_offsets[2];
+  for (int i = 0; i < ovrEye_Count; ++i) {
+    eye_render_descs[i] = ovr_GetRenderDesc(
+        mHmd, (ovrEyeType)i, mEyes[i].Fov);
+    hmd_to_eye_view_offsets[i] = eye_render_descs[i].HmdToEyeViewOffset;
   }
+  ovrPosef eye_poses[2];
+  ovr_CalcEyePoses(head_pose, hmd_to_eye_view_offsets, eye_poses);
 
-  ovrGLTexture gl_eye_textures[2];
-  ovrTexture eye_textures[2];
-  for (int i = 0; i < ovrEye_Count; ++i ) {
-    auto& eye = mEyes[i];
+  for (int i = 0; i < ovrEye_Count; ++i) {
+    auto& eye = mEyes[(ovrEyeType)i];
+    const auto& render_desc = eye_render_descs[i];
+    const auto& hmd_to_eye_view_offset = hmd_to_eye_view_offsets[i];
+    const auto& eye_pose = eye_poses[i];
 
-    gl_eye_textures[i].OGL.Header.API = ovrRenderAPI_OpenGL;
-    gl_eye_textures[i].OGL.Header.TextureSize = eye.TextureSize;
-    gl_eye_textures[i].OGL.TexId = eye.TextureId;
+    const auto& orient = head_pose.Orientation;
+    Quaternion orientation(orient.w, orient.x, orient.y, orient.z);
+    const auto& pos = head_pose.Position;
+    Vector3 position(pos.x, pos.y, pos.z);
 
-    auto& rect = gl_eye_textures[i].OGL.Header.RenderViewport;
-    rect.Size = eye.TextureSize;
-    rect.Pos.x = 0;
-    rect.Pos.y = 0;
-    eye_textures[i] = gl_eye_textures[i].Texture;
+    // right now this is redundantly set twice (once per eye), but in the older
+    // SDK it was actually NOT redundant, and you would get the new head pose
+    // after rendering one eye. keeping this structure in case this bcomes true
+    // again.
+    mHeadSceneNode->setPosition(position);
+
+    unsigned int projection_modifiers =
+        /* ovrProjection_None | */
+        ovrProjection_RightHanded |
+        /* ovrProjection_FarLessThanNear | */
+        /* ovrProjection_FarClipAtInfinity | */
+        /* ovrProjection_ClipRangeOpenGL | */
+        0;
+    ovrMatrix4f projection = ovrMatrix4f_Projection(
+        eye.Fov, 0.01f, 10000.0f, projection_modifiers);
+
+    auto camera = mEyeCameras[i];
+    Vector3 world_eye_pos = camera->getDerivedPosition();
+    Matrix4 view;
+    view.makeTrans(-world_eye_pos);
+    Matrix4 orientation_transform(orientation.Inverse());
+    view = orientation_transform * view;
+    Matrix4 eye_offset_translate;
+    const auto& eye_off = hmd_to_eye_view_offset;
+    Vector3 eye_offset(eye_off.x, eye_off.y, eye_off.z);
+    eye_offset_translate.makeTrans(-eye_offset);
+    view = eye_offset_translate * view;
+
+    camera->setCustomViewMatrix(true, view);
+    Matrix4 m;
+    camera->setCustomProjectionMatrix(true, ToOgreMatrix(projection, m));
+    
+    // at every update loop, the we take turns using the target texture to
+    // render. my guess is that we can't render onto a texture that is being
+    // used by the SDK as that is introducing undesirable blocking behavior.
+    eye.SwapTextureSet->CurrentIndex =
+        (eye.SwapTextureSet->CurrentIndex + 1)
+        % eye.SwapTextureSet->TextureCount;
+    
+    auto& slot = eye.Textures[eye.SwapTextureSet->CurrentIndex];
+    
+    primary_layer.ColorTexture[i] = eye.SwapTextureSet;
+    primary_layer.Viewport[i].Pos = {0, 0};
+    primary_layer.Viewport[i].Size = {
+      (int)slot.Texture->getWidth(), (int)slot.Texture->getHeight()
+    };
+    primary_layer.Fov[i] = eye.Fov;
+    primary_layer.RenderPose[i] = eye_pose;
+    
+    auto render_target = slot.RenderTarget;
+    render_target->setAutoUpdated(false);
+    render_target->attachDepthBuffer(eye.DepthBuffer.get());
+    static const int z_order = 0;
+    static const float left = 0.0f, top = 0.0f, width = 1.0f, height = 1.0f;
+    Viewport* viewport =
+        render_target->addViewport(camera, z_order, left, top, width, height);
+    viewport->setClearEveryFrame(false);
+    render_target->update();
+    
+    render_target->removeAllViewports();
+    render_target->detachDepthBuffer();
   }
-
-  ovrHmd_EndFrame(mHmd, head_pose, eye_textures);
+  
+  ovrLayerHeader* layers[1] = {&primary_layer.Header};
+  auto result = ovr_SubmitFrame(mHmd, 0, nullptr, layers, 1);
+  
+  /* mRenderWindow->update(); */
 
   //std::string test_result(ovrHmd_GetLatencyTestResult(mHmd));
   //if (test_result.size() > 0) {

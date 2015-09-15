@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project DefaultTargets="Build" ToolsVersion="12.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project DefaultTargets="Build" ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
       <Configuration>Debug</Configuration>
@@ -22,31 +22,32 @@
     <ProjectGuid>{8CF00BD1-AEA8-45A2-BFF2-8329F306B578}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>dk2test</RootNamespace>
+    <WindowsTargetPlatformVersion>8.1</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v120</PlatformToolset>
+    <PlatformToolset>v140</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v120</PlatformToolset>
+    <PlatformToolset>v140</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v120</PlatformToolset>
+    <PlatformToolset>v140</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v120</PlatformToolset>
+    <PlatformToolset>v140</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
@@ -68,21 +69,23 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
-    <IntDir>$(Platform)\$(Configuration)\</IntDir>
-    <OutDir>$(SolutionDir)\..\..\..\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(SolutionDir)..\..\..\$(Platform)\$(Configuration)\</IntDir>
+    <OutDir>$(SolutionDir)..\..\..\$(Platform)\$(Configuration)\</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <OutDir>$(SolutionDir)\..\..\..\$(Platform)\$(Configuration)\</OutDir>
+    <OutDir>$(SolutionDir)..\..\..\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(SolutionDir)..\..\..\$(Platform)\$(Configuration)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
-    <OutDir>$(SolutionDir)\..\..\..\$(Platform)\$(Configuration)\</OutDir>
-    <IntDir>$(Platform)\$(Configuration)\</IntDir>
+    <OutDir>$(SolutionDir)..\..\..\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(SolutionDir)..\..\..\$(Platform)\$(Configuration)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <OutDir>$(SolutionDir)\..\..\..\$(Platform)\$(Configuration)\</OutDir>
+    <OutDir>$(SolutionDir)..\..\..\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(SolutionDir)..\..\..\$(Platform)\$(Configuration)\</IntDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -98,7 +101,7 @@
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>C:\opt\SDL\VisualC\SDL\$(Platform)\$(Configuration);C:\opt\SDL\VisualC\SDLmain\$(Platform)\$(Configuration);C:\opt\OculusSDK\LibOVR\Lib\$(Platform)\VS2013;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>Ws2_32.lib;winmm.lib;SDL2.lib;SDL2main.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>Ws2_32.lib;winmm.lib;SDL2.lib;SDL2main.lib;LibOVR.lib;opengl32.lib;glu32.lib;FreeImage_d.lib;zlib_d.lib;zziplib_d.lib;OgreMainStatic_d.lib;Plugin_OctreeSceneManagerStatic_d.lib;Plugin_ParticleFXStatic_d.lib;RenderSystem_GLStatic_d.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -107,15 +110,15 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>C:\Program Files (x86)\Microsoft DirectX SDK (June 2010)\Include;C:\opt\SDL\include;C:\opt\OculusSDK\LibOVR\Include;C:\opt\boost;C:\opt\ogre\build\sdk\include\OGRE;C:\opt\ogre\build\sdk\include\OGRE\RenderSystems\GL;C:\opt\ogre\build\sdk\include\OGRE\RenderSystems\Direct3D9;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\opt\SDL\include;C:\opt\OculusSDK\LibOVR\Include;C:\opt\boost;C:\opt\ogre\build\sdk\include\OGRE;C:\opt\ogre\build\sdk\include\OGRE\RenderSystems\GL;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PrecompiledHeaderFile>PrecompiledHeaders.hpp</PrecompiledHeaderFile>
       <AdditionalOptions>/Zm256 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>C:\opt\SDL\VisualC\SDL\$(Platform)\$(Configuration);C:\opt\SDL\VisualC\SDLmain\$(Platform)\$(Configuration);C:\opt\boost\stage\lib;C:\opt\OculusSDK\LibOVR\Lib\$(Platform)\VS2013;C:\opt\ogre\build\sdk\lib\debug;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>Ws2_32.lib;winmm.lib;SDL2.lib;SDL2main.lib;libovr64d.lib;OgreMain_d.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>C:\opt\SDL\VisualC\$(Platform)\$(Configuration);C:\opt\boost\stage\lib;C:\opt\OculusSDK\LibOVR\Lib\Windows\$(Platform)\$(Configuration)\VS2015;C:\opt\ogredeps\build\ogredeps\lib\$(Configuration);C:\opt\ogre\build\sdk\lib\Debug;C:\opt\ogre\build\sdk\lib\Debug\opt;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>Ws2_32.lib;winmm.lib;SDL2.lib;SDL2main.lib;LibOVR.lib;opengl32.lib;glu32.lib;FreeImage_d.lib;zlib_d.lib;zziplib_d.lib;OgreMainStatic_d.lib;Plugin_OctreeSceneManagerStatic_d.lib;Plugin_ParticleFXStatic_d.lib;RenderSystem_GLStatic_d.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -136,7 +139,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <AdditionalLibraryDirectories>C:\opt\SDL\VisualC\SDL\$(Platform)\$(Configuration);C:\opt\SDL\VisualC\SDLmain\$(Platform)\$(Configuration);C:\opt\OculusSDK\LibOVR\Lib\$(Platform)\VS2013;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>Ws2_32.lib;winmm.lib;SDL2.lib;SDL2main.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>Ws2_32.lib;winmm.lib;SDL2.lib;SDL2main.lib;LibOVR.lib;opengl32.lib;glu32.lib;FreeImage.lib;zlib.lib;zziplib.lib;OgreMainStatic.lib;Plugin_OctreeSceneManagerStatic.lib;Plugin_ParticleFXStatic.lib;RenderSystem_GLStatic.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -147,7 +150,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>C:\Program Files (x86)\Microsoft DirectX SDK (June 2010)\Include;C:\opt\SDL\include;C:\opt\OculusSDK\LibOVR\Include;C:\opt\boost;C:\opt\ogre\build\sdk\include\OGRE;C:\opt\ogre\build\sdk\include\OGRE\RenderSystems\GL;C:\opt\ogre\build\sdk\include\OGRE\RenderSystems\Direct3D9;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\opt\SDL\include;C:\opt\OculusSDK\LibOVR\Include;C:\opt\boost;C:\opt\ogre\build\sdk\include\OGRE;C:\opt\ogre\build\sdk\include\OGRE\RenderSystems\GL;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PrecompiledHeaderFile>PrecompiledHeaders.hpp</PrecompiledHeaderFile>
       <AdditionalOptions>/Zm256 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
@@ -156,8 +159,8 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalLibraryDirectories>C:\opt\SDL\VisualC\SDL\$(Platform)\$(Configuration);C:\opt\SDL\VisualC\SDLmain\$(Platform)\$(Configuration);C:\opt\boost\stage\lib;C:\opt\OculusSDK\LibOVR\Lib\$(Platform)\VS2013;C:\opt\ogre\build\sdk\lib\RelWithDebInfo;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>Ws2_32.lib;winmm.lib;SDL2.lib;SDL2main.lib;libovr64.lib;OgreMain.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>C:\opt\SDL\VisualC\$(Platform)\$(Configuration);C:\opt\boost\stage\lib;C:\opt\OculusSDK\LibOVR\Lib\Windows\$(Platform)\$(Configuration)\VS2015;C:\opt\ogredeps\build\ogredeps\lib\$(Configuration);C:\opt\ogre\build\sdk\lib\RelWithDebInfo;C:\opt\ogre\build\sdk\lib\RelWithDebInfo\opt;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>Ws2_32.lib;winmm.lib;SDL2.lib;SDL2main.lib;LibOVR.lib;opengl32.lib;glu32.lib;FreeImage.lib;zlib.lib;zziplib.lib;OgreMainStatic.lib;Plugin_OctreeSceneManagerStatic.lib;Plugin_ParticleFXStatic.lib;RenderSystem_GLStatic.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
