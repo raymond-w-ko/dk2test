@@ -16,29 +16,48 @@ dk2test::dk2test()
   this->initSDL();
   this->initOgre();
   this->loadAssets();
-  this->createRenderTextureViewer();
 }
 
 dk2test::~dk2test() {
   for (int i = 0; i < 2; ++i) {
-    mEyes[0].Textures[i].Texture.setNull();
-    mEyes[1].Textures[i].Texture.setNull();
+    ovr_DestroySwapTextureSet(mHmd, mEyes[i].SwapTextureSet);
+  }
+  for (int i = 0; i < 2; ++i) {
+    _deleteShimmedOgreTexture(mEyes[0].Textures[i].Texture);
+    mEyes[0].Textures[i].RenderTarget = nullptr;
+    
+    _deleteShimmedOgreTexture(mEyes[1].Textures[i].Texture);
+    mEyes[1].Textures[i].RenderTarget = nullptr;
   }
   delete mRoot;
-  mRoot = NULL;
+  mRoot = nullptr;
 
   SDL_DestroyWindow(mWindow);
   SDL_Quit();
 
   ovr_Destroy(mHmd);
-  mHmd = NULL;
+  mHmd = nullptr;
   ovr_Shutdown();
+}
+
+void dk2test::_deleteShimmedOgreTexture(Ogre::TexturePtr& texture_ptr) {
+  auto texture = static_cast<TheRenderSystemTexture*>(texture_ptr.get());
+  // HACK BEGIN
+  texture->mSurfaceList.clear();
+  texture->mTextureID = 0;
+  // HACK END
+  std::string texture_name(texture_ptr->getName());
+  texture_ptr.setNull();
+  Ogre::TextureManager::getSingleton().remove(texture_name);
 }
 
 void dk2test::initOVR() {
   ovrInitParams init_params;
   
   init_params.Flags = 0;
+  /// When a debug library is requested, a slower debugging version of the
+  //library will run which can be used to help solve problems in the
+  //library and debug application code.
   /* init_params.Flags |= ovrInit_Debug; */
   /* init_params.Flags |= ovrInit_ServerOptional; */
   /* init_params.Flags |= ovrInit_RequestVersion; */
@@ -61,21 +80,21 @@ void dk2test::initOVR() {
       ovrTrackingCap_Orientation |
       ovrTrackingCap_MagYawCorrection |
       ovrTrackingCap_Position |
-      ovrTrackingCap_Idle |
       0;
   static const unsigned int required_tracking_caps = 0;
-  if (OVR_FAILURE(ovr_ConfigureTracking(mHmd, supported_tracking_caps, required_tracking_caps))) {
+  if (OVR_FAILURE(ovr_ConfigureTracking(mHmd,
+                                        supported_tracking_caps,
+                                        required_tracking_caps))) {
     error("failed to configure tracking capabilities");
   }
 }
 
-void dk2test::onOculusSDKLogMessage(uintptr_t userData, int level, const char* message) {
+void dk2test::onOculusSDKLogMessage(uintptr_t userData,
+                                    int level, const char* message) {
   ((dk2test*)userData)->onOculusSDKLogMessage(level, message);
 }
 
 void dk2test::onOculusSDKLogMessage(int level, const char* message) {
-  /* auto& log_man = LogManager::getSingleton(); */
-  /* log_man.getDefaultLog()->logMessage(message); */
   OutputDebugStringA(message);
 }
 
@@ -88,7 +107,7 @@ void dk2test::initSDL() {
   mWindow = SDL_CreateWindow(
       "dk2test",
       x, y,
-      mHmdDesc.Resolution.w / 2, mHmdDesc.Resolution.h / 2,
+      mHmdDesc.Resolution.w / 4, mHmdDesc.Resolution.h / 2,
       flags);
   if (!mWindow) {
     error("Could not create SDL2 window!");
@@ -102,36 +121,21 @@ void dk2test::initOgre() {
   std::string log_filename = "Ogre.log";
   mRoot = new Root(plugin_filename, config_filename, log_filename);
 
-  // load dynamic libraries
-  /*
-  std::vector<std::string> dlls = {
-    "RenderSystem_GL",
-    "Plugin_OctreeSceneManager",
-    "Plugin_ParticleFX",
-  };
-
-  for (auto dll : dlls) {
-#ifdef _DEBUG
-    dll += "_d";
-#endif
-    mRoot->loadPlugin(dll);
-  }
-  */
-  mRoot->installPlugin(new GLPlugin());
-  mRoot->installPlugin(new OctreePlugin());
+  mRoot->installPlugin(new TheRenderSystemPlugin());
   mRoot->installPlugin(new ParticleFXPlugin());
 
   // create renderer
   auto rendersystems = mRoot->getAvailableRenderers();
-  mGlRenderSystem = static_cast<GLRenderSystem*>(rendersystems[0]);
-  mGlRenderSystem->setFixedPipelineEnabled(false);
-  mRoot->setRenderSystem(mGlRenderSystem);
+  mRenderSystem = static_cast<TheRenderSystem*>(rendersystems[0]);
+  mRenderSystem->setFixedPipelineEnabled(false);
+  mRoot->setRenderSystem(mRenderSystem);
 
   mRoot->initialise(false);
 
   NameValuePairList params;
   params["vsync"] = "vsync";
-  params["externalWindowHandle"] = StringConverter::toString((size_t)GetNativeWindowHandle());
+  params["externalWindowHandle"] = StringConverter::toString(
+      (size_t)GetNativeWindowHandle());
 
   mRenderWindow = mRoot->createRenderWindow(
       "OGRE Render Window",
@@ -140,7 +144,7 @@ void dk2test::initOgre() {
       &params);
   mRenderWindow->setActive(true);
   mRenderWindow->setVisible(true);
-  mRenderWindow->setAutoUpdated(false);
+  mRenderWindow->setVSyncEnabled(false);
 }
 
 void dk2test::loadAssets() {
@@ -167,7 +171,7 @@ void dk2test::loadAssets() {
   ResourceGroupManager::getSingleton().initialiseAllResourceGroups();
 }
 
-struct GLTextureHacker : public GLTexture {
+struct GLTextureHacker : public TheRenderSystemTexture {
   void _freeInternalResourcesImpl() {
     this->freeInternalResourcesImpl();
   }
@@ -188,28 +192,23 @@ static void ShimInOculusTexture(Ogre::Texture* _ogre_texture,
   ovrGLTexture* ovr_texture = reinterpret_cast<ovrGLTexture*>(_ovr_texture);
   auto texture_id = ovr_texture->OGL.TexId;
   ogre_texture->mTextureID = texture_id;
-  auto gl_texture_target = ogre_texture->getGLTextureTarget();
+  auto texture_target = ogre_texture->getGL3PlusTextureTarget();
   auto& gl_support = ogre_texture->mGLSupport;
-  auto state_man = gl_support.getStateCacheManager();
-  state_man->bindGLTexture(gl_texture_target, texture_id);
+  glBindTexture(texture_target, texture_id);
   error = glGetError();
   // OculusRoomTiny only uses 1 level of mipmap, does not touch this
   /* static const int num_mipmaps = 0; */
   /* state_man->setTexParameteri( */
-  /*     gl_texture_target, GL_TEXTURE_MAX_LEVEL, num_mipmaps); */
+  /*     texture_target, GL_TEXTURE_MAX_LEVEL, num_mipmaps); */
   /* error = glGetError(); */
   // copied from OculusRoomTiny demo
-  state_man->setTexParameteri(
-      gl_texture_target, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(texture_target, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   error = glGetError();
-  state_man->setTexParameteri(
-      gl_texture_target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTexParameteri(texture_target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
   error = glGetError();
-  state_man->setTexParameteri(
-      gl_texture_target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(texture_target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
   error = glGetError();
-  state_man->setTexParameteri(
-      gl_texture_target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  glTexParameteri(texture_target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
   error = glGetError();
   // only for textures not displayed on HMD
   /* glTexImage2D(GL_TEXTURE_2D, 0, GL_SRGB8_ALPHA8, */
@@ -219,7 +218,7 @@ static void ShimInOculusTexture(Ogre::Texture* _ogre_texture,
   ogre_texture->__createSurfaceList();
 }
 
-void dk2test::ConfigureRenderingQuality(float render_quality, float fov_quality) {
+void dk2test::CreateEyeRenderTargets(float render_quality, float fov_quality) {
   ovrResult ret;
   render_quality = clamp(render_quality, 0.05f, 2.0f);
   fov_quality = clamp(fov_quality, 0.05f, 1.0f);
@@ -247,7 +246,7 @@ void dk2test::ConfigureRenderingQuality(float render_quality, float fov_quality)
     
     if (eye.SwapTextureSet) {
       ovr_DestroySwapTextureSet(mHmd, eye.SwapTextureSet);
-      eye.SwapTextureSet = NULL;
+      eye.SwapTextureSet = nullptr;
     }
     ret = ovr_CreateSwapTextureSetGL(
         mHmd, GL_SRGB8_ALPHA8, eye.TextureSize.w, eye.TextureSize.h,
@@ -256,6 +255,7 @@ void dk2test::ConfigureRenderingQuality(float render_quality, float fov_quality)
       error("failed to create Oculus SDK texture set");
     }
     
+    // create Ogre RenderTextures by shimming in the Oculus supplied textures
     for (int texture_index = 0;
          texture_index < eye.SwapTextureSet->TextureCount;
          ++texture_index) {
@@ -263,16 +263,7 @@ void dk2test::ConfigureRenderingQuality(float render_quality, float fov_quality)
       // set the OGRE texture's gut to OpenGL invalid 0 texture so we don't do
       // a double free.
       if (slot.Texture.get()) {
-        auto texture = static_cast<Ogre::GLTexture*>(slot.Texture.get());
-        // HACK BEGIN
-        texture->mSurfaceList.clear();
-        texture->mGLSupport.getStateCacheManager()->invalidateStateForTexture(
-            texture->mTextureID);
-        texture->mTextureID = 0;
-        // HACK END
-        std::string texture_name(slot.Texture->getName());
-        slot.Texture.setNull();
-        Ogre::TextureManager::getSingleton().remove(texture_name);
+        _deleteShimmedOgreTexture(slot.Texture);
       }
 
       static const int num_mipmaps = 0;
@@ -297,19 +288,14 @@ void dk2test::ConfigureRenderingQuality(float render_quality, float fov_quality)
           num_mipmaps,
           format,
           TU_RENDERTARGET,
-          NULL,
+          nullptr,
           hw_gamma_correction,
           multisample);
       
       ShimInOculusTexture(slot.Texture.get(),
                           &eye.SwapTextureSet->Textures[texture_index]);
       slot.RenderTarget = slot.Texture->getBuffer()->getRenderTarget();
-      slot.RenderTarget->setAutoUpdated(false);
     }
-    auto render_target =
-        eye.Textures[0].Texture->getBuffer()->getRenderTarget();
-    eye.DepthBuffer = std::unique_ptr<DepthBuffer>(
-        mGlRenderSystem->_createDepthBufferFor(render_target));
   }
 }
 
@@ -320,121 +306,134 @@ void* dk2test::GetNativeWindowHandle() {
 
 #ifdef _WIN32
   return (void*) window_info.info.win.window;
+#else
+  error("GetNativeWindowHandle() not implemented for this OS")
+  return nullptr;
 #endif
 }
 
 void dk2test::CreateScene() {
-  mSceneManager = mRoot->createSceneManager(Ogre::ST_GENERIC);
+  mSceneManager = mRoot->createSceneManager("DefaultSceneManager",
+                                            2, INSTANCING_CULLING_SINGLETHREAD);
   mRootNode = mSceneManager->getRootSceneNode();
 
-  /* mSceneManager->setSkyBox(true, "Examples/EveningSkyBox"); */
-  mSceneManager->setAmbientLight(ColourValue(0.333f, 0.333f, 0.333f));
-
   // for gross movement by WASD and control sticks
-  Ogre::SceneNode* body_node = mRootNode->createChildSceneNode("BodyNode");
+  Ogre::SceneNode* body_node = mRootNode->createChildSceneNode();
 
   // for finer movement by positional tracking
-  Ogre::SceneNode* head_node = body_node->createChildSceneNode("HeadNode");
+  Ogre::SceneNode* head_node = body_node->createChildSceneNode();
   mHeadSceneNode = head_node;
 
   Ogre::Camera* left_eye = mSceneManager->createCamera("LeftEye");
+  left_eye->detachFromParent();
   head_node->attachObject(left_eye);
   left_eye->setNearClipDistance(0.1f);
   mEyeCameras.push_back(left_eye);
 
   Ogre::Camera* right_eye = mSceneManager->createCamera("RightEye");
+  right_eye->detachFromParent();
   head_node->attachObject(right_eye);
   right_eye->setNearClipDistance(0.1f);
   mEyeCameras.push_back(right_eye);
-
+  
   body_node->setPosition(Vector3(0, 0, 0.5));
+  body_node->_getDerivedPositionUpdated();
   body_node->lookAt(Vector3(0, 0, 0), Node::TS_WORLD);
-
-  auto node = mRootNode->createChildSceneNode("ogrehead");
-  /* auto ogrehead = mSceneManager->createEntity("ogrehead.mesh"); */
-  /* node->attachObject(ogrehead); */
-  /* node->setPosition(Vector3(0, 0, 0)); */
-  auto scale = 0.005f;
-  /* node->setScale(Vector3(scale, scale, scale)); */
-  /* node->lookAt(Vector3(0, 0, -1), Node::TS_WORLD); */
-
+  
+  // lighting
+  mSceneManager->setAmbientLight(ColourValue(0.3f, 0.3f, 0.3f));
+  
+  Ogre::SceneNode* node;
+  
+  node = mRootNode->createChildSceneNode();
   auto light = mSceneManager->createLight();
   node->attachObject(light);
   light->setType(Ogre::Light::LT_POINT);
-  light->setPosition(Ogre::Vector3(0, 0, 1));
-
-  /* node = mRootNode->createChildSceneNode("sinbad"); */
-  /* auto sinbad = mSceneManager->createEntity("Sinbad.mesh"); */
-  /* auto anim_state = sinbad->getAnimationState("Dance"); */
-  /* mAnimatingStates.push_back(anim_state); */
-  /* anim_state->setEnabled(true); */
-  /* anim_state->setLoop(true); */
-  /* node->attachObject(sinbad); */
-  /* scale = 0.05f; */
-  /* node->setScale(Vector3(scale, scale, scale)); */
-  /* node->lookAt(Vector3(0, 0, -1), Node::TS_WORLD); */
-  /* node->setPosition(Vector3(-0.25f, 0, 0)); */
-
-  /* node = mRootNode->createChildSceneNode("jaiqua"); */
-  /* auto jaiqua = mSceneManager->createEntity("jaiqua.mesh"); */
-  /* anim_state = jaiqua->getAnimationState("Sneak"); */
-  /* mAnimatingStates.push_back(anim_state); */
-  /* anim_state->setEnabled(true); */
-  /* anim_state->setLoop(true); */
-  /* node->attachObject(jaiqua); */
-  /* scale = 0.0125f; */
-  /* node->setScale(Vector3(scale, scale, scale)); */
-  /* node->lookAt(Vector3(0, 0, 1), Node::TS_WORLD); */
-  /* node->setPosition(Vector3(0.25f, 0, -0.25f)); */
-}
-
-void dk2test::AttachSceneToRenderTargets() {
-#if 0
-  for (int i = 0; i < ovrEye_Count; ++i) {
-    auto& eye = mEyes[i];
-    auto camera = mEyeCameras[i];
-    for (int texture_index = 0;
-         texture_index < eye.SwapTextureSet->TextureCount;
-         ++texture_index) {
-      auto& slot = eye.Textures[texture_index];
-      auto render_target = slot.Texture->getBuffer()->getRenderTarget();
-      slot.RenderTarget = render_target;
-      static const int z_order = 0;
-      static const float left = 0.0f, top = 0.0f, width = 1.0f, height = 1.0f;
-      render_target->addViewport(camera, z_order, left, top, width, height);
-      render_target->setAutoUpdated(false);
-    }
-  }
-#endif
-}
-
-void dk2test::createRenderTextureViewer() {
-  return;
-  mDummySceneManager = mRoot->createSceneManager(ST_GENERIC);
-  mDummySceneManager->setSkyBox(true, "Examples/EveningSkyBox");
-  auto root_node = mDummySceneManager->getRootSceneNode();
-  auto node = root_node->createChildSceneNode("Background");
-  auto dummy_camera = mDummySceneManager->createCamera("dummy0");
-  node->attachObject(dummy_camera);
+  node->setPosition(Ogre::Vector3(0, 0, 1));
   
-#if 0
-  auto rect = new Rectangle2D(true);
-  rect->setCorners(-1, 1, 1, -1);
+  mSceneManager->setSkyBox(true, "Examples/SpaceSkyBox");
+  
+  node = mRootNode->createChildSceneNode();
+  auto ogrehead = mSceneManager->createEntity("ogrehead.mesh");
+  node->attachObject(ogrehead);
+  node->setPosition(Vector3(0, 0, 0));
+  auto scale = 0.005f;
+  node->setScale(Vector3(scale, scale, scale));
+  node->_getDerivedPositionUpdated();
+  node->lookAt(Vector3(0, 0, -1), Node::TS_WORLD);
 
-  MaterialPtr material = MaterialManager::getSingleton().create(
-      "VR_Quad", ResourceGroupManager::DEFAULT_RESOURCE_GROUP_NAME);
-  material->getTechnique(0)->getPass(0)->createTextureUnitState("EyeRenderTarget");
-  material->getTechnique(0)->getPass(0)->setDepthCheckEnabled(false);
-  material->getTechnique(0)->getPass(0)->setDepthWriteEnabled(false);
-  material->getTechnique(0)->getPass(0)->setLightingEnabled(false);
+  node = mRootNode->createChildSceneNode();
+  auto sinbad = mSceneManager->createEntity("Sinbad.mesh");
+  auto anim_state = sinbad->getAnimationState("Dance");
+  mAnimatingStates.push_back(anim_state);
+  anim_state->setEnabled(true);
+  anim_state->setLoop(true);
+  node->attachObject(sinbad);
+  scale = 0.05f;
+  node->setScale(Vector3(scale, scale, scale));
+  node->_getDerivedPositionUpdated();
+  node->lookAt(Vector3(0, 0, -1), Node::TS_WORLD);
+  node->setPosition(Vector3(-0.25f, 0, 0));
 
-  rect->setMaterial("VR_Quad");
-  rect->setBoundingBox(AxisAlignedBox::BOX_INFINITE);
+  node = mRootNode->createChildSceneNode();
+  auto jaiqua = mSceneManager->createEntity("jaiqua.mesh");
+  anim_state = jaiqua->getAnimationState("Sneak");
+  mAnimatingStates.push_back(anim_state);
+  anim_state->setEnabled(true);
+  anim_state->setLoop(true);
+  node->attachObject(jaiqua);
+  scale = 0.0125f;
+  node->setScale(Vector3(scale, scale, scale));
+  node->_getDerivedPositionUpdated();
+  node->lookAt(Vector3(0, 0, 1), Node::TS_WORLD);
+  node->setPosition(Vector3(0.25f, 0, -0.25f));
+}
 
-  node->attachObject(rect);
-#endif
-
-  auto viewport = mRenderWindow->addViewport(dummy_camera);
+void dk2test::SetupCompositor() {
+  auto compositor_manager = mRoot->getCompositorManager2();
+  if (!compositor_manager->hasWorkspaceDefinition("SwapSet0")) {
+    compositor_manager->createBasicWorkspaceDef(
+        "SwapSet0", ColourValue(0.0f, 0.0f, 0.0f, 1.0f));
+  }
+  if (!compositor_manager->hasWorkspaceDefinition("SwapSet1")) {
+    compositor_manager->createBasicWorkspaceDef(
+        "SwapSet1", ColourValue(0.0f, 0.0f, 0.0f, 1.0f));
+  }
+  
+  int swap_number;
+  CompositorWorkspace* workspace;
+  
+  swap_number = 0;
+  // left eye, swap texture 0, left camera
+  workspace = compositor_manager->addWorkspace(
+      mSceneManager,
+      mEyes[ovrEye_Left].Textures[swap_number].RenderTarget, 
+      mEyeCameras[ovrEye_Left],
+      "SwapSet0", false, 0);
+  mEyes[ovrEye_Left].CompositorWorkspaces[swap_number] = workspace;
+  // right eye, swap texture 0, right camera
+  workspace = compositor_manager->addWorkspace(
+      mSceneManager,
+      mEyes[ovrEye_Right].Textures[swap_number].RenderTarget, 
+      mEyeCameras[ovrEye_Right],
+      "SwapSet0", false, 1);
+  mEyes[ovrEye_Right].CompositorWorkspaces[swap_number] = workspace;
+  
+  swap_number = 1;
+  // left eye, swap texture 1, left camera
+  workspace = compositor_manager->addWorkspace(
+      mSceneManager,
+      mEyes[ovrEye_Left].Textures[swap_number].RenderTarget, 
+      mEyeCameras[ovrEye_Left],
+      "SwapSet1", false, 0);
+  mEyes[ovrEye_Left].CompositorWorkspaces[swap_number] = workspace;
+  // right eye, swap texture 1, right camera
+  workspace = compositor_manager->addWorkspace(
+      mSceneManager,
+      mEyes[ovrEye_Right].Textures[swap_number].RenderTarget, 
+      mEyeCameras[ovrEye_Right],
+      "SwapSet1", false, 1);
+  mEyes[ovrEye_Right].CompositorWorkspaces[swap_number] = workspace;
 }
 
 void dk2test::loop() {
@@ -485,20 +484,16 @@ void dk2test::loop() {
 
       if (render_quality_dirty) {
         render_quality_dirty = false;
-        this->ConfigureRenderingQuality(render_quality, fov);
-        this->AttachSceneToRenderTargets();
+        this->CreateEyeRenderTargets(render_quality, fov);
       }
     }
 
     double us = timer->getMicroseconds() / 1e6;
     timer->reset();
-
     for (auto anim_state : mAnimatingStates) {
       anim_state->addTime((float)us);
     }
 
-    // this updates animations
-    mRoot->renderOneFrame();
     this->renderOculusFrame();
   }
 }
@@ -516,7 +511,6 @@ static Ogre::Matrix4& ToOgreMatrix(
 }
 
 void dk2test::renderOculusFrame() {
-  glGetString(GL_VERSION);
   using namespace Ogre;
   
   // this is the primary 3D layer, later on we might want to lower the quality
@@ -525,7 +519,7 @@ void dk2test::renderOculusFrame() {
   ovrLayerEyeFov primary_layer;
   primary_layer.Header.Type = ovrLayerType_EyeFov;
   primary_layer.Header.Flags = 
-      /* ovrLayerFlag_HighQuality | */
+      ovrLayerFlag_HighQuality |
       /* ovrLayerFlag_TextureOriginAtBottomLeft | */
       0;
   
@@ -549,15 +543,11 @@ void dk2test::renderOculusFrame() {
     const auto& hmd_to_eye_view_offset = hmd_to_eye_view_offsets[i];
     const auto& eye_pose = eye_poses[i];
 
-    const auto& orient = head_pose.Orientation;
+    const auto& orient = eye_pose.Orientation;
     Quaternion orientation(orient.w, orient.x, orient.y, orient.z);
-    const auto& pos = head_pose.Position;
+    const auto& pos = eye_pose.Position;
     Vector3 position(pos.x, pos.y, pos.z);
 
-    // right now this is redundantly set twice (once per eye), but in the older
-    // SDK it was actually NOT redundant, and you would get the new head pose
-    // after rendering one eye. keeping this structure in case this bcomes true
-    // again.
     mHeadSceneNode->setPosition(position);
 
     unsigned int projection_modifiers =
@@ -586,14 +576,16 @@ void dk2test::renderOculusFrame() {
     Matrix4 m;
     camera->setCustomProjectionMatrix(true, ToOgreMatrix(projection, m));
     
-    // at every update loop, the we take turns using the target texture to
-    // render. my guess is that we can't render onto a texture that is being
-    // used by the SDK as that is introducing undesirable blocking behavior.
-    eye.SwapTextureSet->CurrentIndex =
-        (eye.SwapTextureSet->CurrentIndex + 1)
-        % eye.SwapTextureSet->TextureCount;
+    int count = eye.SwapTextureSet->TextureCount;
+    auto& current_index = eye.SwapTextureSet->CurrentIndex;
+    current_index = (current_index + 1) % count;
+    int other_index = (current_index + 1) % count;
     
-    auto& slot = eye.Textures[eye.SwapTextureSet->CurrentIndex];
+    auto& slot = eye.Textures[current_index];
+    auto& other_slot = eye.Textures[other_index];
+    
+    eye.CompositorWorkspaces[current_index]->setEnabled(true);
+    eye.CompositorWorkspaces[other_index]->setEnabled(false);
     
     primary_layer.ColorTexture[i] = eye.SwapTextureSet;
     primary_layer.Viewport[i].Pos = {0, 0};
@@ -602,29 +594,14 @@ void dk2test::renderOculusFrame() {
     };
     primary_layer.Fov[i] = eye.Fov;
     primary_layer.RenderPose[i] = eye_pose;
-    
-    auto render_target = slot.RenderTarget;
-    render_target->setAutoUpdated(false);
-    render_target->attachDepthBuffer(eye.DepthBuffer.get());
-    static const int z_order = 0;
-    static const float left = 0.0f, top = 0.0f, width = 1.0f, height = 1.0f;
-    Viewport* viewport =
-        render_target->addViewport(camera, z_order, left, top, width, height);
-    viewport->setClearEveryFrame(false);
-    render_target->update();
-    
-    render_target->removeAllViewports();
-    render_target->detachDepthBuffer();
   }
+  
+  mRoot->renderOneFrame();
   
   ovrLayerHeader* layers[1] = {&primary_layer.Header};
   auto result = ovr_SubmitFrame(mHmd, 0, nullptr, layers, 1);
   
-  /* mRenderWindow->update(); */
-
-  //std::string test_result(ovrHmd_GetLatencyTestResult(mHmd));
-  //if (test_result.size() > 0) {
-    //OutputDebugStringA(test_result.c_str());
-    //OutputDebugStringA("\n");
-  //}
+  // performance seems to be more stable when this is here, even when if are
+  // rendering nothing to the main render window?
+  mRenderWindow->swapBuffers();
 }

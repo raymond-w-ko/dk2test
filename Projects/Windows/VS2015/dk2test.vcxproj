@@ -93,7 +93,7 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>C:\opt\SDL\include;C:\opt\OculusSDK\LibOVR\Include;C:\opt\boost;C:\opt\ogre\build\sdk\include\OGRE;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\opt\SDL\include;C:\opt\OculusSDK\LibOVR\Include;C:\opt\boost;C:\opt\ogre\build\sdk\include\OGRE;C:\opt\ogre\build\sdk\include\OGRE\RenderSystems\GL3Plus\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PrecompiledHeaderFile>PrecompiledHeaders.hpp</PrecompiledHeaderFile>
       <AdditionalOptions>/Zm256 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
@@ -101,7 +101,7 @@
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>C:\opt\SDL\VisualC\SDL\$(Platform)\$(Configuration);C:\opt\SDL\VisualC\SDLmain\$(Platform)\$(Configuration);C:\opt\OculusSDK\LibOVR\Lib\$(Platform)\VS2013;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>Ws2_32.lib;winmm.lib;SDL2.lib;SDL2main.lib;LibOVR.lib;opengl32.lib;glu32.lib;FreeImage_d.lib;zlib_d.lib;zziplib_d.lib;OgreMainStatic_d.lib;Plugin_OctreeSceneManagerStatic_d.lib;Plugin_ParticleFXStatic_d.lib;RenderSystem_GLStatic_d.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>Ws2_32.lib;winmm.lib;SDL2.lib;SDL2main.lib;LibOVR.lib;opengl32.lib;glu32.lib;FreeImage_d.lib;zlib_d.lib;zziplib_d.lib;OgreMainStatic_d.lib;Plugin_ParticleFXStatic_d.lib;RenderSystem_GL3PlusStatic_d.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -110,7 +110,7 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>C:\opt\SDL\include;C:\opt\OculusSDK\LibOVR\Include;C:\opt\boost;C:\opt\ogre\build\sdk\include\OGRE;C:\opt\ogre\build\sdk\include\OGRE\RenderSystems\GL;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\opt\SDL\include;C:\opt\OculusSDK\LibOVR\Include;C:\opt\boost;C:\opt\ogre\build\sdk\include\OGRE;C:\opt\ogre\build\sdk\include\OGRE\RenderSystems\GL3Plus\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PrecompiledHeaderFile>PrecompiledHeaders.hpp</PrecompiledHeaderFile>
       <AdditionalOptions>/Zm256 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
@@ -118,7 +118,7 @@
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>C:\opt\SDL\VisualC\$(Platform)\$(Configuration);C:\opt\boost\stage\lib;C:\opt\OculusSDK\LibOVR\Lib\Windows\$(Platform)\$(Configuration)\VS2015;C:\opt\ogredeps\build\ogredeps\lib\$(Configuration);C:\opt\ogre\build\sdk\lib\Debug;C:\opt\ogre\build\sdk\lib\Debug\opt;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>Ws2_32.lib;winmm.lib;SDL2.lib;SDL2main.lib;LibOVR.lib;opengl32.lib;glu32.lib;FreeImage_d.lib;zlib_d.lib;zziplib_d.lib;OgreMainStatic_d.lib;Plugin_OctreeSceneManagerStatic_d.lib;Plugin_ParticleFXStatic_d.lib;RenderSystem_GLStatic_d.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>Ws2_32.lib;winmm.lib;SDL2.lib;SDL2main.lib;LibOVR.lib;opengl32.lib;glu32.lib;FreeImage_d.lib;zlib_d.lib;zziplib_d.lib;OgreMainStatic_d.lib;Plugin_ParticleFXStatic_d.lib;RenderSystem_GL3PlusStatic_d.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -129,7 +129,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>C:\opt\SDL\include;C:\opt\OculusSDK\LibOVR\Include;C:\opt\boost;C:\opt\ogre\build\sdk\include\OGRE;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\opt\SDL\include;C:\opt\OculusSDK\LibOVR\Include;C:\opt\boost;C:\opt\ogre\build\sdk\include\OGRE;C:\opt\ogre\build\sdk\include\OGRE\RenderSystems\GL3Plus\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PrecompiledHeaderFile>PrecompiledHeaders.hpp</PrecompiledHeaderFile>
       <AdditionalOptions>/Zm256 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
@@ -139,7 +139,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <AdditionalLibraryDirectories>C:\opt\SDL\VisualC\SDL\$(Platform)\$(Configuration);C:\opt\SDL\VisualC\SDLmain\$(Platform)\$(Configuration);C:\opt\OculusSDK\LibOVR\Lib\$(Platform)\VS2013;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>Ws2_32.lib;winmm.lib;SDL2.lib;SDL2main.lib;LibOVR.lib;opengl32.lib;glu32.lib;FreeImage.lib;zlib.lib;zziplib.lib;OgreMainStatic.lib;Plugin_OctreeSceneManagerStatic.lib;Plugin_ParticleFXStatic.lib;RenderSystem_GLStatic.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>Ws2_32.lib;winmm.lib;SDL2.lib;SDL2main.lib;LibOVR.lib;opengl32.lib;glu32.lib;FreeImage.lib;zlib.lib;zziplib.lib;OgreMainStatic.lib;Plugin_ParticleFXStatic.lib;RenderSystem_GL3PlusStatic.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -150,7 +150,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>C:\opt\SDL\include;C:\opt\OculusSDK\LibOVR\Include;C:\opt\boost;C:\opt\ogre\build\sdk\include\OGRE;C:\opt\ogre\build\sdk\include\OGRE\RenderSystems\GL;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\opt\SDL\include;C:\opt\OculusSDK\LibOVR\Include;C:\opt\boost;C:\opt\ogre\build\sdk\include\OGRE;C:\opt\ogre\build\sdk\include\OGRE\RenderSystems\GL3Plus\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PrecompiledHeaderFile>PrecompiledHeaders.hpp</PrecompiledHeaderFile>
       <AdditionalOptions>/Zm256 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
@@ -160,7 +160,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <AdditionalLibraryDirectories>C:\opt\SDL\VisualC\$(Platform)\$(Configuration);C:\opt\boost\stage\lib;C:\opt\OculusSDK\LibOVR\Lib\Windows\$(Platform)\$(Configuration)\VS2015;C:\opt\ogredeps\build\ogredeps\lib\$(Configuration);C:\opt\ogre\build\sdk\lib\RelWithDebInfo;C:\opt\ogre\build\sdk\lib\RelWithDebInfo\opt;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>Ws2_32.lib;winmm.lib;SDL2.lib;SDL2main.lib;LibOVR.lib;opengl32.lib;glu32.lib;FreeImage.lib;zlib.lib;zziplib.lib;OgreMainStatic.lib;Plugin_OctreeSceneManagerStatic.lib;Plugin_ParticleFXStatic.lib;RenderSystem_GLStatic.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>Ws2_32.lib;winmm.lib;SDL2.lib;SDL2main.lib;LibOVR.lib;opengl32.lib;glu32.lib;FreeImage.lib;zlib.lib;zziplib.lib;OgreMainStatic.lib;Plugin_ParticleFXStatic.lib;RenderSystem_GL3PlusStatic.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>

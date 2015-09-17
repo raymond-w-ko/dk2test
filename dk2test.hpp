@@ -1,5 +1,9 @@
 #pragma once
 
+typedef Ogre::GL3PlusRenderSystem TheRenderSystem;
+typedef Ogre::GL3PlusPlugin TheRenderSystemPlugin;
+typedef Ogre::GL3PlusTexture TheRenderSystemTexture;
+  
 class dk2test {
  public:
   struct Eye {
@@ -12,18 +16,19 @@ class dk2test {
     
     ovrFovPort Fov;
     ovrSizei TextureSize;
+    ovrEyeRenderDesc RenderDesc;
     
     ovrSwapTextureSet* SwapTextureSet;
     struct Textures_ {
       Ogre::TexturePtr Texture;
       Ogre::RenderTarget* RenderTarget;
     } Textures[2];
-    std::unique_ptr<Ogre::DepthBuffer> DepthBuffer;
-
-    ovrEyeRenderDesc RenderDesc;
+    
+    Ogre::CompositorWorkspace* CompositorWorkspaces[2];
   };
   
-  static void onOculusSDKLogMessage(uintptr_t userData, int level, const char* message);
+  static void onOculusSDKLogMessage(uintptr_t userData,
+                                    int level, const char* message);
 
   dk2test();
   ~dk2test();
@@ -31,10 +36,10 @@ class dk2test {
   void onOculusSDKLogMessage(int level, const char* message);
 
   void* GetNativeWindowHandle();
-  void ConfigureRenderingQuality(float render_quality, float fov_quality);
+  void CreateEyeRenderTargets(float render_quality, float fov_quality);
 
   void CreateScene();
-  void AttachSceneToRenderTargets();
+  void SetupCompositor();
 
   void loop();
   void renderOculusFrame();
@@ -45,7 +50,7 @@ class dk2test {
   void initOgre();
   void loadAssets();
 
-  void createRenderTextureViewer();
+  void _deleteShimmedOgreTexture(Ogre::TexturePtr& texture_ptr);
 
   ovrHmd mHmd;
   ovrHmdDesc mHmdDesc;
@@ -55,7 +60,7 @@ class dk2test {
   SDL_Window* mWindow;
 
   Ogre::Root* mRoot;
-  Ogre::GLRenderSystem* mGlRenderSystem;
+  TheRenderSystem* mRenderSystem;
   Ogre::RenderWindow* mRenderWindow;
 
   Eye mEyes[ovrEye_Count];

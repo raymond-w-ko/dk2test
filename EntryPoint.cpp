@@ -23,9 +23,9 @@ int main(int argc, char* argv[]) {
   boost::filesystem::current_path(path / "..");
 
   dk2test instance;
-  instance.ConfigureRenderingQuality(1.0f, 1.0f);
+  instance.CreateEyeRenderTargets(1.0f, 1.0f);
   instance.CreateScene();
-  instance.AttachSceneToRenderTargets();
+  instance.SetupCompositor();
 
   instance.loop();
 
