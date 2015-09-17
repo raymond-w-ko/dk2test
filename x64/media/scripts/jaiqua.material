@@ -1,0 +1,15 @@
+material jaiqua {
+  // Hardware skinning technique - no fragment program
+  technique { pass {
+    vertex_program_ref Ogre/HardwareSkinningTwoWeights {
+    }
+
+    fragment_program_ref Ogre/BasicFragmentPrograms/DiffuseOneTexture {
+    }
+
+    texture_unit {
+      texture blue_jaiqua.jpg
+      tex_address_mode clamp
+    }
+  } }
+}
