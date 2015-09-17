@@ -391,6 +391,7 @@ void dk2test::CreateScene() {
 
 void dk2test::SetupCompositor() {
   auto compositor_manager = mRoot->getCompositorManager2();
+  compositor_manager->removeAllWorkspaces();
   if (!compositor_manager->hasWorkspaceDefinition("SwapSet0")) {
     compositor_manager->createBasicWorkspaceDef(
         "SwapSet0", ColourValue(0.0f, 0.0f, 0.0f, 1.0f));
@@ -485,6 +486,7 @@ void dk2test::loop() {
       if (render_quality_dirty) {
         render_quality_dirty = false;
         this->CreateEyeRenderTargets(render_quality, fov);
+        this->SetupCompositor();
       }
     }
 
