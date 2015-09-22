@@ -1,0 +1,12 @@
+material OculusSdkMirrorMaterial {
+	technique { pass {
+    texture_unit {
+      texture OculusMirrorTexture
+    }
+
+    vertex_program_ref Ogre/BasicVertexPrograms/AmbientOneTextureWithUV {
+    }
+    fragment_program_ref Ogre/BasicFragmentPrograms/DiffuseOneTexture {
+    }
+  } }
+}
