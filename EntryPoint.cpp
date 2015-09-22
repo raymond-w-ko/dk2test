@@ -26,6 +26,7 @@ int main(int argc, char* argv[]) {
   instance.CreateEyeRenderTargets(1.0f, 1.0f);
   instance.CreateScene();
   instance.SetupCompositor();
+  instance.SetupMirroring();
 
   instance.loop();
 

@@ -27,6 +27,9 @@ class dk2test {
     Ogre::CompositorWorkspace* CompositorWorkspaces[2];
   };
   
+  ovrTexture* mOvrMirrorTexture;
+  Ogre::TexturePtr mMirrorTexture;
+  
   static void onOculusSDKLogMessage(uintptr_t userData,
                                     int level, const char* message);
 
@@ -40,6 +43,7 @@ class dk2test {
 
   void CreateScene();
   void SetupCompositor();
+  void SetupMirroring();
 
   void loop();
   void renderOculusFrame();
@@ -70,6 +74,8 @@ class dk2test {
   std::vector<Ogre::Camera*> mEyeCameras;
   Ogre::SceneNode* mHeadSceneNode;
   std::vector<Ogre::AnimationState*> mAnimatingStates;
+  int mWorkspaceRenderOrder;
 
   Ogre::SceneManager* mDummySceneManager;
+  Ogre::CompositorWorkspace* mMirrorWorkspace;
 };
