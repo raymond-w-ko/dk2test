@@ -702,7 +702,7 @@ void dk2test::renderOculusFrame() {
     primary_layer.RenderPose[i] = eye_pose;
   }
 
-  mMirrorWorkspace->setEnabled(true);
+  mMirrorWorkspace->setEnabled(false);
   mRoot->renderOneFrame();
 
   ovrLayerHeader* layers[1] = {&primary_layer.Header};
